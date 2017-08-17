@@ -1,0 +1,268 @@
+# This file is part of lemonade. It is subject to the licence terms in the COPYRIGHT file found in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT. No part of lemonade, including this file, may be copied, modified, propagated, or distributed except according to the terms contained in the COPYRIGHT file.
+# Copyright © 2014-2015 The developers of lemonade. See the COPYRIGHT file in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT.
+
+
+# Alpine Linux lacks brotli, pngquant (edge/community) and jpegoptim (edge/community)
+
+lemonade_all()
+{
+	_lemonade_addStandaloneBinaryPackageToPath jq hugo minify
+	
+	lemonade_makeInputPathAbsolute
+	lemonade_createOutputFolder
+
+	_lemonade_finalOutputPath="$lemonade_outputPath"/site
+	_lemonade_rootOutputPath="$_lemonade_finalOutputPath"/root
+	
+	# Make any gif animations using gifsicle
+	
+	lemonade_makeCaddyOutline
+	
+	lemonade_getRealFavicon
+	
+	lemonade_runHugo
+	
+	lemonade_crushAllPng
+	lemonade_crushAllJpeg
+	lemonade_crushAllGif
+	lemonade_minify
+	lemonade_compress
+}
+
+lemonade_makeInputPathAbsolute()
+{
+	pushd "$lemonade_inputPath"
+		lemonade_inputPath="$(pwd)"
+	popd
+}
+
+core_dependency_requires '*' mkdir
+lemonade_createOutputFolder()
+{
+	mkdir -m 0700 -p "$lemonade_outputPath" 2>/dev/null || true
+	pushd "$lemonade_outputPath"
+		lemonade_outputPath="$(pwd)"
+	popd
+	
+	if core_variable_isTrue "$lemonade_cleanOutput"; then
+		set +f
+			rm -rf "$lemonade_outputPath"/*
+		set +f
+	fi
+}
+
+core_dependency_requires '*' rsync
+core_dependency_requires '*' cp
+core_dependency_requires '*' mkdir
+core_dependency_requires '*' wget  # Used by download-caddy
+lemonade_makeCaddyOutline()
+{
+	mkdir -m 0700 -p "$_lemonade_finalOutputPath"
+	
+	rsync --archive --quiet --exclude='.git' --exclude='.gitignore' --exclude='.gitmodules' "$lemonade_inputPath"/caddy/ "$_lemonade_finalOutputPath"/
+	
+	mkdir -m 0700 -p "$_lemonade_rootOutputPath"
+	
+	cp "$_program_etcPath"/download-caddy "$_lemonade_finalOutputPath"
+	
+	"$_lemonade_finalOutputPath"/download-caddy download 'Linux' 'x86_64'
+}
+
+core_dependency_requires '*' mkdir
+core_dependency_requires '*' head
+core_dependency_requires '*' base64
+core_dependency_requires '*' tr
+core_dependency_requires '*' sed
+core_dependency_requires '*' curl
+core_dependency_requires '*' unzip
+core_dependency_requires '*' rsync
+lemonade_getRealFavicon()
+{
+	local inputFaviconFolderPath="$lemonade_inputPath"/favicon
+	local outputFaviconFolderPath="$lemonade_outputPath"/favicon
+	mkdir -m 0700 -p "$outputFaviconFolderPath"
+	
+	local apiKey="$(head -n 1 "$inputFaviconFolderPath"/RealFaviconGenerator.api-key)"
+	local imageData="$(base64 "$inputFaviconFolderPath"/master-picture | tr -d $'\n')"
+	
+	sed -e 's/\[TODO: Copy your API key here\]/'"$apiKey"'/g' -e 's,\[TODO: Copy the base64-encoded content of the image here\],'"$imageData"',g' "$inputFaviconFolderPath"/RealFaviconGenerator.request.template.json >"$outputFaviconFolderPath"/RealFaviconGenerator.request.json
+	
+	curl --silent --fail --tlsv1.2 --output "$outputFaviconFolderPath"/RealFaviconGenerator.favicons.json --request POST --data @"$outputFaviconFolderPath"/RealFaviconGenerator.request.json https://realfavicongenerator.net/api/favicon
+	
+	jq --raw-output '.favicon_generation_result.favicon.html_code' "$outputFaviconFolderPath"/RealFaviconGenerator.favicons.json >"$outputFaviconFolderPath"/RealFaviconGenerator.favicons.html-head-snippet
+	
+	local staticFilePath="$outputFaviconFolderPath"/static.zip
+	local zipOfFavicons="$(jq --raw-output '.favicon_generation_result.favicon.package_url' "$outputFaviconFolderPath"/RealFaviconGenerator.favicons.json)"
+	curl --silent --fail --tlsv1.2 --output "$staticFilePath" --request GET "$zipOfFavicons"
+	unzip -o "$staticFilePath" -d "$_lemonade_rootOutputPath" 1>/dev/null 2>/dev/null
+}
+
+core_dependency_requires '*' mkdir
+core_dependency_requires '*' mv
+lemonade_runHugo()
+{
+	local hugoInputFolderPath="$lemonade_inputPath"/hugo
+	
+	hugo --quiet \
+		--destination "$_lemonade_rootOutputPath" --source "$hugoInputFolderPath" \
+		--i18n-warnings
+	
+	local errors="$_lemonade_finalOutputPath"/errors
+	mkdir -m 0700 -p "$errors"
+	
+	if [ -f "$_lemonade_rootOutputPath"/404.html ]; then
+		rm -rf "$errors"/404.html
+		mv "$_lemonade_rootOutputPath"/404.html "$errors"
+	fi
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' rm
+core_dependency_requires '*' pngquant
+core_dependency_requires '*' optipng
+lemonade_crushAllPng()
+{
+	pushd "$_lemonade_rootOutputPath"
+		
+		local imageFilePath
+		find . -type f -name '*.png' | while IFS= read -r imageFilePath
+		do
+			local optimisationSettingsFilePath="$imageFilePath".lossy
+			if [ -f "$optimisationSettingsFilePath" ]; then
+				
+				local _minimum=0
+				local _maximum=100
+				
+				minimum()
+				{
+					_minimum="$1"
+				}
+				
+				maximum()
+				{
+					_maximum="$1"
+				}
+				
+				. "$optimisationSettingsFilePath"
+				
+				pngquant --quality "$_minimum"-"$_maximum" --skip-if-larger --speed 1 --strip --force --ext .png "$imageFilePath"
+				
+				rm -rf "$optimisationSettingsFilePath"
+			fi
+			
+			optipng -o 7 -clobber -fix -preserve -quiet -zw 32k -strip all "$imageFilePath"
+		done
+		
+	popd
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' jpegoptim
+lemonade_crushAllJpeg()
+{
+	pushd "$_lemonade_rootOutputPath"
+		
+		local imageFilePath
+		find . -type f -name '*.jpg' | while IFS= read -r imageFilePath
+		do
+			set -- --force --preserve --preserve-perms --quiet --strip-all --all-normal
+			
+			local optimisationSettingsFilePath="$imageFilePath".lossy
+			if [ -f "$optimisationSettingsFilePath" ]; then
+				
+				local _maximum=100
+				
+				minimum()
+				{
+					:
+				}
+				
+				maximum()
+				{
+					_maximum="$1"
+				}
+				
+				. "$optimisationSettingsFilePath"
+				
+				set -- "$@" --max="$_maximum"
+								
+				rm -rf "$optimisationSettingsFilePath"
+			fi
+			
+			jpegoptim "$@" "$imageFilePath"
+		done
+		
+	popd
+}
+
+# NOTE: lossygif (https://pornel.net/lossygif) allows lossy compression but conflicts with gifsicle as it has the SAME binary name... FFS...
+core_dependency_requires '*' find
+core_dependency_requires '*' mv
+core_dependency_requires '*' gifsicle
+core_dependency_requires '*' rm
+lemonade_crushAllGif()
+{
+	pushd "$_lemonade_rootOutputPath"
+		
+		local imageFilePath
+		find . -type f -name '*.jpg' | while IFS= read -r imageFilePath
+		do
+			mv "$imageFilePath" "$imageFilePath".orig
+			gifsicle --optimize=3 "$imageFilePath".orig --output "$imageFilePath"
+			rm "$imageFilePath".orig
+		done
+		
+	popd
+}
+
+core_dependency_requires '*' mkdir
+core_dependency_requires '*' rsync
+core_dependency_requires '*' rm
+lemonade_minify()
+{
+	local minifiedFolderPath="$lemonade_outputPath"/minified
+	
+	mkdir -m 0700 -p "$minifiedFolderPath"
+	
+	minify --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"
+	rsync --archive --quiet "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"/
+	
+	rm -rf "$minifiedFolderPath"
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' pigz
+core_dependency_requires '*' bro
+lemonade_compress()
+{
+	local folderPath
+	for folderPath in "$_lemonade_finalOutputPath"/root "$_lemonade_finalOutputPath"/errors
+	do
+		local fileExtension
+		for fileExtension in css htm html js json svg xml txt csv tsv ico
+		do
+			local filePath
+			find "$folderPath" -type f -name '*.'"$fileExtension" | while IFS= read -r filePath
+			do
+				# More efficient gzip
+				pigz -11 --iterations 50 --no-name --oneblock --quiet --no-time --keep --force "$filePath"
+			
+				# brotli (`bro`)
+				bro --force --quality 11 --repeat 50 --window 24 --input "$filePath" --output "$filePath".br
+			done
+		done
+	done
+}
+
+core_dependency_requires '*' uname
+_lemonade_addStandaloneBinaryPackageToPath()
+{
+	local operatingSystem="$(uname)"
+	local architecture="$(uname -m)"
+	
+	local package
+	for package in "$@"
+	do
+		export PATH="$_program_binPath"/"$package"/current/"$operatingSystem"/"$architecture":"$PATH"
+	done
+}
