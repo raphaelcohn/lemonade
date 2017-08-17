@@ -36,11 +36,11 @@ _program_commandLine_helpMessage()
 	_program_commandLine_helpMessage_options="
   -i, --input-path PATH     Path to input data
                             Defaults to current working directory:-
-                            $(pwd)/input
+                            $(pwd)/../../input
   -o, --output-path PATH    Path to use when creating output.
                             Created if it doesn't exist.
                             Defaults to current working directory:-
-                            $(pwd)/output
+                            $(pwd)/../../output
   -c, --clean-output [OFF]  Clean output on start. Defaults to ON"
     _program_commandLine_helpMessage_optionsSpacing='     '
 	_program_commandLine_helpMessage_configurationKeys="
@@ -118,14 +118,14 @@ _program_commandLine_validate()
 		core_validate_folderPathReadableAndSearchable $core_commandLine_exitCode_CONFIG 'configuration setting' 'lemonade_inputPath' "$lemonade_swaddlingPath"
 	else
 		core_message INFO "Defaulting --input-path to current working directory"
-		lemonade_inputPath="$(pwd)"/input
+		lemonade_inputPath="$(pwd)"/../../input
 	fi
 	
 	if core_variable_isSet lemonade_outputPath; then
 		core_validate_folderPathIsReadableAndSearchableAndWritableOrCanBeCreated $core_commandLine_exitCode_CONFIG 'configuration setting' 'lemonade_outputPath' "$lemonade_outputPath"
 	else
 		core_message INFO "Defaulting --output-path to current working directory"
-		lemonade_outputPath="$(pwd)"/output
+		lemonade_outputPath="$(pwd)"/../../output
 	fi
 	
 	if core_variable_isSet lemonade_cleanOutput; then

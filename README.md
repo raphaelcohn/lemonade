@@ -21,6 +21,7 @@ cd tools
 git submodule add https://github.com/raphaelcohn/lemonade.git
 cd ..
 cd ..
+ln -s tools/lemonade/lemonade
 mkdir -p input
 
 printf '%s\n' 'output/' >.gitignore
@@ -34,7 +35,7 @@ You'll need to set up a folder structure inside `input`. This step will be docum
 From the root of your repository, do:-
 
 ```bash
-tools/lemonade/lemonade --input-path ./input --output-path ./output
+./lemonade
 ```
 
 Your website, including Caddy and all dependencies, can then be deployed simply by doing `rsync --archive --quiet ./output/site/ USER@REMOTE_SERVER:/path/to/remote/host`.
