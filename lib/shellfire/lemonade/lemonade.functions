@@ -25,13 +25,13 @@ lemonade_all()
 	#  concatenation  - ordering and layout is problematic
 	#  www.jsweet.org - Java to TypeScript to JavaScript; much higher bar, better refactoring, etc
 	
-	lemonade_compileSassToCss "$lemonade_inputPath"/sass "$_lemonade_rootOutputPath" 'css'
-	lemonade_compileSassToCss "$lemonade_inputPath"/hugo/layouts "$_lemonade_rootOutputPath" 'html'
+	lemonade_compileSassToCss "$lemonade_inputPath"/sass/files "$_lemonade_rootOutputPath" 'css'
+	lemonade_compileSassToCss "$lemonade_inputPath"/hugo/layouts "$lemonade_inputPath"/hugo/layouts 'html'
 	
 	lemonade_getRealFavicon
 	
 	lemonade_runHugo
-	
+		
 	lemonade_crushAllPng
 	lemonade_crushAllJpeg
 	lemonade_crushAllGif
@@ -62,7 +62,9 @@ lemonade_createOutputFolder()
 		find -d "$lemonade_outputPath" -type f -exec chmod 0600 {} \;
 	fi
 	
-	rm -rf "$lemonade_outputPath"/*
+	set +f
+		rm -rf "$lemonade_outputPath"/*
+	set -f
 		
 	# if core_variable_isTrue "$lemonade_cleanOutput"; then
 	# 	set +f
@@ -73,102 +75,153 @@ lemonade_createOutputFolder()
 core_dependency_requires '*' rsync
 core_dependency_requires '*' cp
 core_dependency_requires '*' mkdir
-core_dependency_requires '*' wget  # Used by download-caddy
+core_dependency_requires '*' touch
 lemonade_makeCaddyOutline()
 {
 	mkdir -m 0700 -p "$_lemonade_finalOutputPath"
 	
 	rsync --archive --quiet --exclude='.git' --exclude='.gitignore' --exclude='.gitmodules' "$lemonade_inputPath"/caddy/ "$_lemonade_finalOutputPath"/
 	
-	mkdir -m 0700 -p "$_lemonade_rootOutputPath"
+	local folderNameToEnsureExists
+	for folderNameToEnsureExists in environments/production/caddyfiles errors markdown-templates root
+	do
+		mkdir -m 0700 -p "$_lemonade_finalOutputPath"/"$folderNameToEnsureExists"
+	done
 	
-	mkdir -m 0700 -p "$_lemonade_finalOutputPath"/bin
-	cp "$_program_etcPath"/download-caddy "$_lemonade_finalOutputPath"/bin
-	chmod 0500 "$_program_etcPath"/download-caddy
-	
-	"$_lemonade_finalOutputPath"/download-caddy download 'Linux' 'x86_64'
+	local fileNameToEnsureExists
+	for fileNameToEnsureExists in caddy.configuration.sh Caddyfile
+	do
+		touch "$fileNameToEnsureExists"
+	done
 }
 
+core_dependency_requires '*' mkdir
 core_dependency_requires '*' find
 core_dependency_requires '*' sassc
-core_dependency_requires '*' mkdir
 lemonade_compileSassToCss()
 {
 	local inputFolderPath="$1"
 	local outputFolderPath="$2"
 	local fileExtension="$3"
 	
+	local loadPath="$lemonade_inputPath"/sass/imports
+	mkdir -m 0700 -p "$loadPath"
+	
+	local pluginPath="$lemonade_inputPath"/sass/plugins
+	mkdir -m 0700 -p "$pluginPath"
+	
 	precision()
 	{
 		_precision="$1"
 	}
 	
-	is_not_sass()
-	{
-		_isSass=false
-	}
-	
 	pushd "$inputFolderPath"
-	
-		local sassFilePath
-		find . -type f -name '*.sass' | while IFS= read -r sassFilePath
+		
+		local fileExtension
+		for fileExtension in sass scss
 		do
-			local _precision=5
-			local _isSass=true
+			local sassFilePath
+			find . -type f -name '*.'"$fileExtension" | while IFS= read -r sassFilePath
+			do
+				local withoutFileExtension="${sassFilePath%.*}"
+				local outputFilePath="$outputFolderPath"/"${withoutFileExtension}.${fileExtension}"
 			
-			local optionsFilePath="$sassFilePath".options
-			if [ -s "$optionsFilePath" ]; then
-				. "$optionsFilePath"
-			fi
+				local parentFolderPath="${outputFilePath%/*}"
+				mkdir -m 0700 -p "$parentFolderPath"
+
+				local _precision=5
 			
-			set -- --style compressed --load-path . --plugin-path xxx --sourcemap --omit-map-comment --precision "$_precision"
-			if $_isSass; then
-				set -- "$@" --sass
-			fi
+				local optionsFilePath="$sassFilePath".options
+				if [ -s "$optionsFilePath" ]; then
+					. "$optionsFilePath"
+				fi
+					
+				set -- \
+					--style compressed \
+					--load-path "$loadPath" \
+					--plugin-path "$pluginPath" \
+					--precision "$_precision"
+				
+				if [ "$fileExtension" = 'sass' ]; then
+					set -- "$@" --sass
+				fi
 			
-			local withoutFileExtension="${sassFilePath%.*}"
-			local outputFilePath="$outputFolderPath"/"${withoutFileExtension}.${fileExtension}"
-			
-			local parentFolderPath="${outputFilePath%/*}"
-			mkdir -m 0700 -p "$parentFolderPath"
-			
-			sassc "$@" "$sassFilePath" "$outputFilePath"
+				sassc "$@" "$sassFilePath" "$outputFilePath"
+			done
 		done
-	
+		
 	popd
 }
 
+core_dependency_requires '*' cat
+core_dependency_requires '*' sha256sum
+core_dependency_requires '*' rm
 core_dependency_requires '*' mkdir
 core_dependency_requires '*' head
 core_dependency_requires '*' base64
 core_dependency_requires '*' tr
 core_dependency_requires '*' sed
 core_dependency_requires '*' curl
+core_dependency_requires '*' cp
 core_dependency_requires '*' unzip
-core_dependency_requires '*' rsync
 lemonade_getRealFavicon()
 {
+	_lemonade_getRealFavicon_hash()
+	{
+		local filePath="$1"
+		
+		if [ -e "$filePath" ]; then
+			# Use cat so file path is not in sha256sum output
+			cat $filePath | sha256sum
+		fi
+	}
+	
+	_lemonade_getRealFavicon_download()
+	{
+		local apiKey="$(head -n 1 "$inputFaviconFolderPath"/RealFaviconGenerator.api-key)"
+		local imageData="$(base64 "$masterPictureFilePath" | tr -d $'\n')"
+	
+		sed -e 's/\[TODO: Copy your API key here\]/'"$apiKey"'/g' -e 's,\[TODO: Copy the base64-encoded content of the image here\],'"$imageData"',g' "$requestTemplateFilePath" >"$outputFaviconFolderPath"/RealFaviconGenerator.request.json
+	
+		curl --silent --fail --tlsv1.2 --output "$outputFaviconFolderPath"/RealFaviconGenerator.favicons.json --request POST --data @"$outputFaviconFolderPath"/RealFaviconGenerator.request.json https://realfavicongenerator.net/api/favicon
+		
+		local zipOfFavicons="$(jq --raw-output '.favicon_generation_result.favicon.package_url' "$outputFaviconFolderPath"/RealFaviconGenerator.favicons.json)"
+		curl --silent --fail --tlsv1.2 --output "$staticFilePath" --request GET "$zipOfFavicons"
+	
+		jq --raw-output '.favicon_generation_result.favicon.html_code' "$outputFaviconFolderPath"/RealFaviconGenerator.favicons.json >"$outputFaviconFolderPath"/favicons.html
+
+		rm -rf "$cachedMasterPictureFilePath"
+		cp "$masterPictureFilePath" "$cachedMasterPictureFilePath"
+		
+		rm -rf "$cachedRequestTemplateFilePath"
+		cp "$requestTemplateFilePath" "$cachedRequestTemplateFilePath"
+	}
+	
 	local inputFaviconFolderPath="$lemonade_inputPath"/favicon
-	local outputFaviconFolderPath="$lemonade_outputPath"/favicon
+	local outputFaviconFolderPath="$_lemonade_cacheFolderPath"/generated-favicons
 	mkdir -m 0700 -p "$outputFaviconFolderPath"
 	
-	local apiKey="$(head -n 1 "$inputFaviconFolderPath"/RealFaviconGenerator.api-key)"
-	local imageData="$(base64 "$inputFaviconFolderPath"/master-picture | tr -d $'\n')"
+	local masterPictureFilePath="$inputFaviconFolderPath"/master-picture
+	local cachedMasterPictureFilePath="$outputFaviconFolderPath"/master-picture
 	
-	sed -e 's/\[TODO: Copy your API key here\]/'"$apiKey"'/g' -e 's,\[TODO: Copy the base64-encoded content of the image here\],'"$imageData"',g' "$inputFaviconFolderPath"/RealFaviconGenerator.request.template.json >"$outputFaviconFolderPath"/RealFaviconGenerator.request.json
+	local requestTemplateFilePath="$inputFaviconFolderPath"/RealFaviconGenerator.request.template.json
+	local cachedRequestTemplateFilePath="$outputFaviconFolderPath"/RealFaviconGenerator.request.template.json
 	
-	curl --silent --fail --tlsv1.2 --output "$outputFaviconFolderPath"/RealFaviconGenerator.favicons.json --request POST --data @"$outputFaviconFolderPath"/RealFaviconGenerator.request.json https://realfavicongenerator.net/api/favicon
+	local staticFilePath="$outputFaviconFolderPath"/favicons.zip
 	
-	jq --raw-output '.favicon_generation_result.favicon.html_code' "$outputFaviconFolderPath"/RealFaviconGenerator.favicons.json >"$outputFaviconFolderPath"/RealFaviconGenerator.favicons.html-head-snippet
-	
-	local staticFilePath="$outputFaviconFolderPath"/static.zip
-	local zipOfFavicons="$(jq --raw-output '.favicon_generation_result.favicon.package_url' "$outputFaviconFolderPath"/RealFaviconGenerator.favicons.json)"
-	curl --silent --fail --tlsv1.2 --output "$staticFilePath" --request GET "$zipOfFavicons"
+	if [ "$(_lemonade_getRealFavicon_hash "$masterPictureFilePath")" != "$(_lemonade_getRealFavicon_hash "$cachedMasterPictureFilePath")" ]; then
+		_lemonade_getRealFavicon_download
+	elif [ "$(_lemonade_getRealFavicon_hash "$requestTemplateFilePath")" != "$(_lemonade_getRealFavicon_hash "$cachedRequestTemplateFilePath")" ]; then
+		_lemonade_getRealFavicon_download
+	fi
+
 	unzip -o "$staticFilePath" -d "$_lemonade_rootOutputPath" 1>/dev/null 2>/dev/null
+	cp "$outputFaviconFolderPath"/favicons.html "$lemonade_inputPath"/hugo/layouts/partials
 }
 
 core_dependency_requires '*' mkdir
 core_dependency_requires '*' mv
+core_dependency_requires '*' find
 lemonade_runHugo()
 {
 	local hugoInputFolderPath="$lemonade_inputPath"/hugo
@@ -184,6 +237,9 @@ lemonade_runHugo()
 		rm -rf "$errors"/404.html
 		mv "$_lemonade_rootOutputPath"/404.html "$errors"
 	fi
+	
+	# Some hugo themes incorrectly using `.gitkeep`
+	find -d "$lemonade_outputPath"/site -type f -name '.gitkeep' -exec rm -rf {} \;
 }
 
 core_dependency_requires '*' find
@@ -294,7 +350,7 @@ lemonade_minify()
 	
 	mkdir -m 0700 -p "$minifiedFolderPath"
 	
-	minify --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"
+	minify --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath" || true
 	rsync --archive --quiet "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"/
 	
 	rm -rf "$minifiedFolderPath"
@@ -333,6 +389,10 @@ lemonade_lockDownFilePermissions()
 {
 	find -d "$lemonade_outputPath"/site -type f -exec chmod 0400 {} \;
 	find -d "$lemonade_outputPath"/site -type d -exec chmod 0500 {} \;
+	
+
+	find -d "$lemonade_outputPath"/site/bin -type f -exec chmod 0500 {} \;
+	chmod 0500 "$lemonade_outputPath"/site/caddy-wrapper
 }
 
 core_dependency_requires '*' uname

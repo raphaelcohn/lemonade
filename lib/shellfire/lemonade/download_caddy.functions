@@ -20,7 +20,7 @@ _lemonade_download_caddy_findPlugins()
 		else
 			caddy_plugins="$caddy_plugins","$pluginName"
 		fi
-	done <"$sortedPluginsFilePath"
+	done <"$sortedPluginsListFilePath"
 }
 
 _lemonade_download_caddy_findOperatingSystemAndMachine()
@@ -67,7 +67,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 				;;
 		
 				*)
-					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m (NOTE: PowerPC and MIPS downloads are not supported by this script)"
+					core_exitError 1 "Unsupported machine architecture '$unameMachine' from uname -m (NOTE: PowerPC and MIPS downloads are not supported by this script)"
 				;;
 		
 			esac
@@ -79,7 +79,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 			caddy_arch="amd64"
 			
 			if [ "$unameMachine" != 'x86_64' ]; then
-				download_caddy_fail "Only Amd64 is supported for Mac OS X"
+				core_exitError 1 "Only Amd64 is supported for Mac OS X"
 			fi
 		;;
 		
@@ -88,7 +88,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 			caddy_arch="amd64"
 			
 			if [ "$unameMachine" != 'x86_64' ]; then
-				download_caddy_fail "Only Amd64 is supported for DragonFly"
+				core_exitError 1 "Only Amd64 is supported for DragonFly"
 			fi
 		;;
 		
@@ -98,7 +98,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 			case "$unameMachine" in
 		
 				*aarch64*)
-					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+					core_exitError 1 "Unsupported machine architecture '$unameMachine' from uname -m"
 				;;
 				
 				*64*)
@@ -120,7 +120,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 				;;
 		
 				*)
-					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+					core_exitError 1 "Unsupported machine architecture '$unameMachine' from uname -m"
 				;;
 		
 			esac
@@ -132,7 +132,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 			case "$unameMachine" in
 		
 				*aarch64*)
-					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+					core_exitError 1 "Unsupported machine architecture '$unameMachine' from uname -m"
 				;;
 				
 				*64*)
@@ -154,7 +154,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 				;;
 		
 				*)
-					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+					core_exitError 1 "Unsupported machine architecture '$unameMachine' from uname -m"
 				;;
 		
 			esac
@@ -166,7 +166,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 			case "$unameMachine" in
 		
 				*aarch64*)
-					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+					core_exitError 1 "Unsupported machine architecture '$unameMachine' from uname -m"
 				;;
 				
 				*64*)
@@ -188,7 +188,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 				;;
 		
 				*)
-					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+					core_exitError 1 "Unsupported machine architecture '$unameMachine' from uname -m"
 				;;
 		
 			esac
@@ -200,7 +200,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 			case "$unameMachine" in
 		
 				*aarch64*)
-					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+					core_exitError 1 "Unsupported machine architecture '$unameMachine' from uname -m"
 				;;
 				
 				*64*)
@@ -208,7 +208,7 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 				;;
 		
 				*)
-					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+					core_exitError 1 "Unsupported machine architecture '$unameMachine' from uname -m"
 				;;
 		
 			esac
@@ -220,11 +220,11 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 			caddy_bin='caddy.exe'
 			export CASE_SENSITIVE_PATH=false
 			
-			download_caddy_fail "Windows is not supported by this script"
+			core_exitError 1 "Windows is not supported by this script"
 		;;
 		
 		*)
-			download_caddy_fail "Unsupported operating system '$unameOperatingSystem' from uname"
+			core_exitError 1 "Unsupported operating system '$unameOperatingSystem' from uname"
 		;;
 		
 	esac
@@ -260,7 +260,7 @@ lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied()
 	{
 		local operatingSystem="$1"
 		local architecture="$2"
-		printf '%s,%s\n' >>"$deploymentTargetsFile"
+		printf '%s,%s\n' "$operatingSystem" "$architecture" >>"$deploymentTargetsFile"
 	}
 	
 	printf '%s,%s\n' "$(uname)" "$(uname -m)" >>"$deploymentTargetsFile"
@@ -330,11 +330,15 @@ lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied()
 		mkdir -m 0700 -p "$destinationBinFolderPath"
 		cp "$caddyServerFilePath" "$destinationBinFolderPath"
 		chmod 0500 "$destinationBinFolderPath"/"$caddyServerBinaryName"
-		pushd "$caddyExtractFolderPath"
+		pushd "$destinationBinFolderPath"
 			ln -s "$caddyServerBinaryName" "$caddySymlinkName"
 		popd
 		
 	done <"$deploymentTargetsFile"
 	
-	# Write a simple wrapper script
+	cp "$_program_etcPath"/caddy "$_lemonade_finalOutputPath"/bin
+	chmod 0500 "$_lemonade_finalOutputPath"/bin/caddy
+	
+	cp "$_program_etcPath"/caddy-wrapper "$_lemonade_finalOutputPath"
+	chmod 0500 "$_lemonade_finalOutputPath"/caddy-wrapper
 }

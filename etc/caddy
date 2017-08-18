@@ -76,7 +76,7 @@ _program_path_find()
 caddy_main()
 {
 	local programPath="$(_program_path_find)"
-	cd "$programPath"/.. 1>/dev/null 2>/dev/null
+	cd "$programPath" 1>/dev/null 2>/dev/null
 		local homeFolder="$(pwd)"
 	cd - 1>/dev/null 2>/dev/null
 	
