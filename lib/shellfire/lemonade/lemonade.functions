@@ -4,6 +4,9 @@
 
 # Alpine Linux lacks brotli, pngquant (edge/community) and jpegoptim (edge/community)
 
+
+core_usesIn lemonade download_caddy
+
 lemonade_all()
 {
 	_lemonade_addStandaloneBinaryPackageToPath jq hugo minify
@@ -13,10 +16,17 @@ lemonade_all()
 
 	_lemonade_finalOutputPath="$lemonade_outputPath"/site
 	_lemonade_rootOutputPath="$_lemonade_finalOutputPath"/root
-	
-	# Make any gif animations using gifsicle
+	_lemonade_cacheFolderPath="$lemonade_inputPath"/cache
 	
 	lemonade_makeCaddyOutline
+	lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied
+	
+	# Javascript processing
+	#  concatenation  - ordering and layout is problematic
+	#  www.jsweet.org - Java to TypeScript to JavaScript; much higher bar, better refactoring, etc
+	
+	lemonade_compileSassToCss "$lemonade_inputPath"/sass "$_lemonade_rootOutputPath" 'css'
+	lemonade_compileSassToCss "$lemonade_inputPath"/hugo/layouts "$_lemonade_rootOutputPath" 'html'
 	
 	lemonade_getRealFavicon
 	
@@ -27,6 +37,9 @@ lemonade_all()
 	lemonade_crushAllGif
 	lemonade_minify
 	lemonade_compress
+	
+	# fix caddy
+	lemonade_lockDownFilePermissions
 }
 
 lemonade_makeInputPathAbsolute()
@@ -44,11 +57,17 @@ lemonade_createOutputFolder()
 		lemonade_outputPath="$(pwd)"
 	popd
 	
-	if core_variable_isTrue "$lemonade_cleanOutput"; then
-		set +f
-			rm -rf "$lemonade_outputPath"/*
-		set +f
+	if [ -e "$lemonade_outputPath" ]; then
+		find -d "$lemonade_outputPath" -type d -exec chmod 0700 {} \;
+		find -d "$lemonade_outputPath" -type f -exec chmod 0600 {} \;
 	fi
+	
+	rm -rf "$lemonade_outputPath"/*
+		
+	# if core_variable_isTrue "$lemonade_cleanOutput"; then
+	# 	set +f
+	# 	set +f
+	# fi
 }
 
 core_dependency_requires '*' rsync
@@ -63,9 +82,60 @@ lemonade_makeCaddyOutline()
 	
 	mkdir -m 0700 -p "$_lemonade_rootOutputPath"
 	
-	cp "$_program_etcPath"/download-caddy "$_lemonade_finalOutputPath"
+	mkdir -m 0700 -p "$_lemonade_finalOutputPath"/bin
+	cp "$_program_etcPath"/download-caddy "$_lemonade_finalOutputPath"/bin
+	chmod 0500 "$_program_etcPath"/download-caddy
 	
 	"$_lemonade_finalOutputPath"/download-caddy download 'Linux' 'x86_64'
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' sassc
+core_dependency_requires '*' mkdir
+lemonade_compileSassToCss()
+{
+	local inputFolderPath="$1"
+	local outputFolderPath="$2"
+	local fileExtension="$3"
+	
+	precision()
+	{
+		_precision="$1"
+	}
+	
+	is_not_sass()
+	{
+		_isSass=false
+	}
+	
+	pushd "$inputFolderPath"
+	
+		local sassFilePath
+		find . -type f -name '*.sass' | while IFS= read -r sassFilePath
+		do
+			local _precision=5
+			local _isSass=true
+			
+			local optionsFilePath="$sassFilePath".options
+			if [ -s "$optionsFilePath" ]; then
+				. "$optionsFilePath"
+			fi
+			
+			set -- --style compressed --load-path . --plugin-path xxx --sourcemap --omit-map-comment --precision "$_precision"
+			if $_isSass; then
+				set -- "$@" --sass
+			fi
+			
+			local withoutFileExtension="${sassFilePath%.*}"
+			local outputFilePath="$outputFolderPath"/"${withoutFileExtension}.${fileExtension}"
+			
+			local parentFolderPath="${outputFilePath%/*}"
+			mkdir -m 0700 -p "$parentFolderPath"
+			
+			sassc "$@" "$sassFilePath" "$outputFilePath"
+		done
+	
+	popd
 }
 
 core_dependency_requires '*' mkdir
@@ -232,6 +302,7 @@ lemonade_minify()
 
 core_dependency_requires '*' find
 core_dependency_requires '*' pigz
+core_dependency_requires '*' touch
 core_dependency_requires '*' bro
 lemonade_compress()
 {
@@ -246,12 +317,22 @@ lemonade_compress()
 			do
 				# More efficient gzip
 				pigz -11 --iterations 50 --no-name --oneblock --quiet --no-time --keep --force "$filePath"
+				touch -r "$filePath" "$filePath".gz
 			
 				# brotli (`bro`)
 				bro --force --quality 11 --repeat 50 --window 24 --input "$filePath" --output "$filePath".br
+				touch -r "$filePath" "$filePath".br
 			done
 		done
 	done
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' chmod
+lemonade_lockDownFilePermissions()
+{
+	find -d "$lemonade_outputPath"/site -type f -exec chmod 0400 {} \;
+	find -d "$lemonade_outputPath"/site -type d -exec chmod 0500 {} \;
 }
 
 core_dependency_requires '*' uname

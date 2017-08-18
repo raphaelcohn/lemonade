@@ -1,0 +1,445 @@
+#!/usr/bin/env sh
+# This file is part of lemonade. It is subject to the license terms in the COPYRIGHT file found in the top-level directory of this distribution and at https://raw.githubusercontent.com/lemonrock/lemonade/master/COPYRIGHT. No part of rust1, including this file, may be copied, modified, propagated, or distributed except according to the terms contained in the COPYRIGHT file.
+# Copyright © 2016 The developers of lemonade. See the COPYRIGHT file in the top-level directory of this distribution and at https://raw.githubusercontent.com/lemonrock/lemonade/master/COPYRIGHT.
+
+
+set -e
+set -u
+set -f
+
+_program_path_find()
+{
+    if [ "${_program_fattening_program_path+set}" = 'set' ]; then
+        printf '%s\n' "$_program_fattening_program_path"
+
+    elif [ "${0%/*}" = "$0" ]; then
+
+        # We've been invoked by the interpreter as, say, bash program
+        if [ -r "$0" ]; then
+            pwd -P
+        # Clutching at straws; probably run via a download, anonymous script, etc, weird execve, etc
+        else
+            printf '\n'
+        fi
+
+    else
+
+        # We've been invoked with a relative or absolute path (also when invoked via PATH in a shell)
+
+        _program_path_find_parentPath()
+        {
+            parentPath="${scriptPath%/*}"
+            if [ -z "$parentPath" ]; then
+                parentPath='/'
+            fi
+            cd "$parentPath" 1>/dev/null
+        }
+
+        # pdksh / mksh have problems with unsetting a variable that was never set...
+        if [ "${CDPATH+set}" = 'set' ]; then
+            unset CDPATH
+        fi
+
+        if command -v realpath 1>/dev/null 2>/dev/null; then
+            (
+                scriptPath="$(realpath "$0")"
+
+                _program_path_find_parentPath
+                pwd -P
+            )
+        elif command -v readlink 1>/dev/null 2>/dev/null; then
+            (
+                scriptPath="$0"
+
+                while [ -L "$scriptPath" ]
+                do
+                    _program_path_find_parentPath
+                    scriptPath="$(readlink "$scriptPath")"
+                done
+
+                _program_path_find_parentPath
+                pwd -P
+            )
+        else
+            # This approach will fail in corner cases where the script itself is a symlink in a path not parallel with the concrete script
+            (
+                scriptPath="$0"
+
+                _program_path_find_parentPath
+                pwd -P
+            )
+        fi
+
+    fi
+}
+
+caddy_wrapper_fail()
+{
+	local message="$1"
+	
+	printf 'caddy-wrapper:FAIL:%s\n' "$message"
+	exit 1
+}
+
+caddy_wrapper_assertProgramIsPresent()
+{
+	if ! command -v "$commandToFind" 1>/dev/null 2>/dev/null; then
+		caddy_wrapper_fail "Essential command '$commandToFind' is not on the PATH"
+	fi
+}
+
+caddy_wrapper_folderIsExtantReadableAndSearchable()
+{
+	local folderPathName="$1"
+	local folderPath="$2"
+
+	if [ ! -d "$folderPath" ]; then
+		caddy_wrapper_fail "$folderPathName folder path '$folderPath' does not exist as a folder"
+	fi
+	if [ ! -r "$folderPath" ]; then
+		caddy_wrapper_fail "$folderPathName folder path '$folderPath' is not readable"
+	fi
+	if [ ! -x "$folderPath" ]; then
+		caddy_wrapper_fail "$folderPathName folder path '$folderPath' is not searable"
+	fi
+}
+
+caddy_wrapper_folderIsExtantReadableAndSearchableAndWritable()
+{
+	local folderPathName="$1"
+	local folderPath="$2"
+
+	caddy_wrapper_folderIsExtantReadableAndSearchable "$folderPathName" "$folderPath"
+	
+	if [ ! -w "$folderPath" ]; then
+		caddy_wrapper_fail "$folderPathName folder path '$folderPath' is not writable"
+	fi
+}
+
+caddy_wrapper_fileIsExtantReadableAndNotEmpty()
+{
+	local filePathName="$1"
+	local filePath="$2"
+
+	if [ ! -f "$filePath" ]; then
+		caddy_wrapper_fail "$filePathName file path '$filePath' does not exist as a file"
+	fi
+	if [ ! -r "$filePath" ]; then
+		caddy_wrapper_fail "$filePathName file path '$filePath' is not readable"
+	fi
+	if [ ! -s "$filePath" ]; then
+		caddy_wrapper_fail "$filePathName file path '$filePath' is empty"
+	fi
+}
+
+caddy_wrapper_setConfigurationFolderPath()
+{
+	configurationFolderPath="$programPath"
+	caddy_wrapper_folderIsExtantReadableAndSearchable 'configuration' "$configurationFolderPath"
+}
+
+caddy_wrapper_assertProgramIsPresent mkdir
+caddy_wrapper_setCacheFolderPath()
+{
+	local cacheFolderPath="$configurationFolderPath"/cache
+	mkdir -m 0700 -p "$cacheFolderPath"
+	caddy_wrapper_folderIsExtantReadableAndSearchableAndWritable 'cache' "$cacheFolderPath"
+	
+	export CADDYPATH="$cacheFolderPath"/"$caddy_wrapper_environment"
+	mkdir -m 0700 -p "$CADDYPATH"
+}
+
+caddy_wrapper_set()
+{
+	local variableName="$1"
+	local value="$2"
+	
+	local namespacedName=CADDY_WRAPPER_"$variableName"
+	
+	eval "$namespacedName"'=$value'
+}
+
+caddy_wrapper_defaults()
+{
+	caddy_wrapper_set ULIMIT 8192
+	
+	caddy_wrapper_set ACME_AGREE true
+	caddy_wrapper_set LOG_STANDARD_ERROR false
+	# -logtostderr
+
+	# Typically needed for dev, staging, etc - an environment setting
+	caddy_wrapper_set ACME_CA 'https://acme-v01.api.letsencrypt.org/directory'
+	
+	caddy_wrapper_set ACME_CA_TIMEOUT '10s'
+	#-conf
+	caddy_wrapper_set CPU '100%'  # Can also be a number of cores, eg 3
+	caddy_wrapper_set ACME_DISABLE_HTTP_CHALLENGE false
+	caddy_wrapper_set ACME_DISABLE_TLS_SNI_CHALLENGE false
+	caddy_wrapper_set DNS_PORT 53
+	caddy_wrapper_set ACME_EMAIL 'webmaster@stormmq.com'
+	caddy_wrapper_set GRACEFUL_SHUTDOWN_DURATION '5s'
+	caddy_wrapper_set DEFAULT_HOST 'localhost'
+	caddy_wrapper_set HTTP_PORT 80
+	caddy_wrapper_set ENABLE_HTTP2_PROTOCOL true
+	caddy_wrapper_set HTTPS_PORT 443
+	# -log
+	# -log_backtrace_at
+	# -log_dir
+	# -pidfile
+	caddy_wrapper_set DEFAULT_PORT 2015
+	caddy_wrapper_set ENABLE_QUIC_PROTOCOL false
+	# -root
+	
+	caddy_wrapper_set SERVER_TYPE 'http'
+}
+
+caddy_wrapper_loadConfiguration()
+{
+	_caddy_wrapper_loadConfiguration()
+	{
+		local fileBaseName="$1"
+	
+		local caddyConfigurationFilePath="$configurationFolderPath"/"$fileBaseName"
+		if [ ! -s "$caddyConfigurationFilePath" ]; then
+			return 0
+		fi
+	
+		set +e
+			. "$caddyConfigurationFilePath"
+			local exitCode=$?
+		set -e
+		if [ $exitCode -ne 0 ]; then
+			caddy_wrapper_fail "Could not source configuration file '$caddyConfigurationFilePath'"
+		fi
+	}
+	
+	export CADDY_WRAPPER_ENVIRONMENT="$caddy_wrapper_environment"
+	
+	_caddy_wrapper_loadConfiguration caddy.configuration.sh
+	_caddy_wrapper_loadConfiguration environments/"$caddy_wrapper_environment"/public.caddy.configuration.sh
+	_caddy_wrapper_loadConfiguration environments/"$caddy_wrapper_environment"/secret.caddy.configuration.sh
+}
+
+caddy_wrapper_execute()
+{	
+	ulimit -n "$CADDY_WRAPPER_ULIMIT"
+	
+	set -- -quiet "$@"
+	
+	if $CADDY_WRAPPER_ACME_AGREE; then
+		set -- "$@" -agree
+	fi
+	
+	if $CADDY_WRAPPER_LOG_STANDARD_ERROR; then
+		set -- "$@" -alsologtostderr
+	fi
+
+	set -- "$@" -ca "$CADDY_WRAPPER_ACME_CA"
+	
+	set -- "$@" -catimeout "$CADDY_WRAPPER_ACME_CA_TIMEOUT"
+	
+	#set -- "$@" -conf 'Caddyfile'
+	
+	set -- "$@" -cpu "$CADDY_WRAPPER_CPU"
+	
+	if $CADDY_WRAPPER_ACME_DISABLE_HTTP_CHALLENGE; then
+		set -- "$@" -disable-http-challenge
+	fi
+	
+	if $CADDY_WRAPPER_ACME_DISABLE_TLS_SNI_CHALLENGE; then
+		set -- "$@" -disable-tls-sni-challenge
+	fi
+
+	set -- "$@" -dns.port "$CADDY_WRAPPER_DNS_PORT"
+
+	set -- "$@" -email "$CADDY_WRAPPER_ACME_EMAIL"
+	
+	set -- "$@" -grace "$CADDY_WRAPPER_GRACEFUL_SHUTDOWN_DURATION"
+	
+	set -- "$@" -host "$CADDY_WRAPPER_DEFAULT_HOST"
+
+	set -- "$@" -http-port "$CADDY_WRAPPER_HTTP_PORT"
+
+	set -- "$@" -https-port "$CADDY_WRAPPER_HTTPS_PORT"
+	
+	# -log
+
+	# -log_backtrace_at
+	
+	# -log_dir
+
+	# -logtostderr
+	
+	# -pidfile
+	
+	set -- "$@" -port "$CADDY_WRAPPER_DEFAULT_PORT"
+	
+	if $CADDY_WRAPPER_ENABLE_HTTP2_PROTOCOL; then
+		set -- "$@" -http2
+	fi
+	
+	if $CADDY_WRAPPER_ENABLE_QUIC_PROTOCOL; then
+		set -- "$@" -quic
+	fi
+	
+	set -- "$@" -root ./root
+	
+	# -stderrthreshold VALUE
+	
+	set -- "$@" -type "$CADDY_WRAPPER_SERVER_TYPE"
+	
+	# -v value (log level)
+	
+	# -vmodule ????
+	
+	cd "$configurationFolderPath" 1>/dev/null 2>/dev/null
+	exec bin/caddy "$@"
+}
+
+caddy_wrapper_showHelp()
+{
+	cat <<-EOF
+		caddy-wrapper
+		  runs as if called as `caddy-wrapper serve production`
+		caddy-wrapper MODE ...
+		  where MODE can be one of:-
+		    serve     Serve web pages
+		    revoke    Revoke a HTTPS certificate
+		    validate  Validate Caddyfile
+		    help      Show this help and exit
+		
+		The following modes take additional arguments:-
+		  serve [ENVIRONMENT]
+		    ENVIRONMENT  Custom environment overrides to use
+                         Defaults to `production`
+		  revoke HOST [ENVIRONMENT]
+		    HOST         Host to revoke certificate for
+		    ENVIRONMENT  Custom environment overrides to use
+                         Defaults to `production`
+		  validate [ENVIRONMENT]
+		    ENVIRONMENT  Custom environment overrides to use
+                         Defaults to `production`
+	EOF
+}
+
+_caddy_wrapper_mode_parseEnvironment()
+{
+	case "$#" in
+		
+		'0')
+			caddy_wrapper_environment='production'
+		;;
+		
+		'1')
+			caddy_wrapper_environment="$1"
+		;;
+		
+		*)
+			caddy_wrapper_mode_fail
+		;;
+		
+	esac
+}
+
+caddy_wrapper_assertProgramIsPresent mkdir
+caddy_wrapper_prepareForExecution()
+{	
+	caddy_wrapper_setConfigurationFolderPath
+	
+	caddy_wrapper_setCacheFolderPath
+	
+	caddy_wrapper_defaults
+	
+	caddy_wrapper_loadConfiguration
+}
+
+caddy_wrapper_mode_serve()
+{
+	local caddy_wrapper_environment
+	_caddy_wrapper_mode_parseEnvironment "$@"
+	
+	caddy_wrapper_prepareForExecution "$@"
+	caddy_wrapper_execute
+}
+
+caddy_wrapper_mode_revoke()
+{
+	if [ $# -eq 0 ]; then
+		caddy_wrapper_fail "Please supply HOST"
+	fi
+	local hostToRevoke="$1"
+	shift 1
+	
+	local caddy_wrapper_environment
+	_caddy_wrapper_mode_parseEnvironment "$@"
+	
+	caddy_wrapper_prepareForExecution "$@"
+	caddy_wrapper_execute -revoke
+}
+
+caddy_wrapper_mode_validate()
+{
+	local caddy_wrapper_environment
+	_caddy_wrapper_mode_parseEnvironment "$@"
+	
+	caddy_wrapper_prepareForExecution "$@"
+	caddy_wrapper_execute -validate
+}
+
+caddy_wrapper_mode_help()
+{
+	if [ $# -ne 0 ]; then
+		caddy_wrapper_mode_fail
+	fi
+	
+	caddy_wrapper_showHelp
+	exit 0
+}
+
+caddy_wrapper_mode_fail()
+{
+	printf 'caddy-wrapper:FAIL:%s\n\n' 'Unrecognised command line'
+	caddy_wrapper_showHelp 1>&2
+	exit 1
+}
+
+caddy_wrapper_parseCommandLine()
+{
+	if [ $# -eq 0 ]; then
+		caddy_mode='serve'
+	else
+		
+		case "$1" in
+			
+			-h|-help|--help)
+				caddy_mode='help'
+			;;
+			
+			serve|revoke|validate|help)
+				caddy_mode="$1"
+			;;
+			
+			*)
+				caddy_mode='fail'
+			;;
+			
+		esac
+	fi
+}
+
+caddy_wrapper_main()
+{
+	local programPath="$(_program_path_find)"
+	cd "$programPath"/.. 1>/dev/null 2>/dev/null
+		local homeFolder="$(pwd)"
+	cd - 1>/dev/null 2>/dev/null
+	
+	local caddy_mode
+	caddy_wrapper_parseCommandLine "$@"
+	if [ $# -ne 0 ]; then
+		shift 1
+	fi
+	caddy_wrapper_mode_${caddy_mode} "$@"
+}
+
+caddy_wrapper_main "$@"

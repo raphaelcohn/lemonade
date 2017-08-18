@@ -1,0 +1,340 @@
+# This file is part of lemonade. It is subject to the licence terms in the COPYRIGHT file found in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT. No part of lemonade, including this file, may be copied, modified, propagated, or distributed except according to the terms contained in the COPYRIGHT file.
+# Copyright © 2014-2015 The developers of lemonade. See the COPYRIGHT file in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT.
+
+
+core_dependency_requires '*' sort
+_lemonade_download_caddy_findPlugins()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local sortedPluginsListFilePath="$TMP_FILE"
+	
+	sort -u "$pluginsListFilePath" >"$sortedPluginsListFilePath"
+	
+	caddy_plugins=''
+	local pluginName
+	while IFS='' read -r pluginName
+	do
+		if [ -z "$caddy_plugins" ]; then
+			caddy_plugins="$pluginName"
+		else
+			caddy_plugins="$caddy_plugins","$pluginName"
+		fi
+	done <"$sortedPluginsFilePath"
+}
+
+_lemonade_download_caddy_findOperatingSystemAndMachine()
+{
+	local unameOperatingSystem="$1"
+	local unameMachine="$2"
+
+	export CASE_SENSITIVE_PATH=true
+	caddy_arm=''
+	caddy_dl_ext='tar.gz'
+	caddy_bin='caddy'
+	case "$unameOperatingSystem" in
+		
+	 	Linux)
+			caddy_os='linux'
+	
+			case "$unameMachine" in
+		
+				*aarch64*)
+					caddy_arch="arm64"
+				;;
+		
+				*64*)
+					caddy_arch="amd64"
+				;;
+		
+				*86*)
+					caddy_arch="386"
+				;;
+		
+				*armv5*)
+					caddy_arch="arm"
+					caddy_arm='5'
+				;;
+		
+				*armv6l*)
+					caddy_arch="arm"
+					caddy_arm='6'
+				;;
+		
+				*armv7l*)
+					caddy_arch="arm"
+					caddy_arm='7'
+				;;
+		
+				*)
+					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m (NOTE: PowerPC and MIPS downloads are not supported by this script)"
+				;;
+		
+			esac
+		;;
+		
+		Darwin)
+			caddy_dl_ext='zip'
+			caddy_os='darwin'
+			caddy_arch="amd64"
+			
+			if [ "$unameMachine" != 'x86_64' ]; then
+				download_caddy_fail "Only Amd64 is supported for Mac OS X"
+			fi
+		;;
+		
+		DragonFly)
+			caddy_os='dragonfly'
+			caddy_arch="amd64"
+			
+			if [ "$unameMachine" != 'x86_64' ]; then
+				download_caddy_fail "Only Amd64 is supported for DragonFly"
+			fi
+		;;
+		
+		FreeBSD)
+			caddy_os='freebsd'
+	
+			case "$unameMachine" in
+		
+				*aarch64*)
+					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+				;;
+				
+				*64*)
+					caddy_arch="amd64"
+				;;
+		
+				*86*)
+					caddy_arch="386"
+				;;
+		
+				*armv6l*)
+					caddy_arch="arm"
+					caddy_arm='6'
+				;;
+		
+				*armv7l*)
+					caddy_arch="arm"
+					caddy_arm='7'
+				;;
+		
+				*)
+					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+				;;
+		
+			esac
+		;;
+		
+		OpenBSD)
+			caddy_os='openbsd'
+	
+			case "$unameMachine" in
+		
+				*aarch64*)
+					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+				;;
+				
+				*64*)
+					caddy_arch="amd64"
+				;;
+		
+				*86*)
+					caddy_arch="386"
+				;;
+		
+				*armv6l*)
+					caddy_arch="arm"
+					caddy_arm='6'
+				;;
+		
+				*armv7l*)
+					caddy_arch="arm"
+					caddy_arm='7'
+				;;
+		
+				*)
+					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+				;;
+		
+			esac
+		;;
+		
+		NetBSD)
+			caddy_os='netbsd'
+	
+			case "$unameMachine" in
+		
+				*aarch64*)
+					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+				;;
+				
+				*64*)
+					caddy_arch="amd64"
+				;;
+		
+				*86*)
+					caddy_arch="386"
+				;;
+		
+				*armv6l*)
+					caddy_arch="arm"
+					caddy_arm='6'
+				;;
+		
+				*armv7l*)
+					caddy_arch="arm"
+					caddy_arm='7'
+				;;
+		
+				*)
+					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+				;;
+		
+			esac
+		;;
+		
+		SunOS)
+			caddy_os='solaris'
+	
+			case "$unameMachine" in
+		
+				*aarch64*)
+					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+				;;
+				
+				*64*)
+					caddy_arch="amd64"
+				;;
+		
+				*)
+					download_caddy_fail "Unsupported machine architecture '$unameMachine' from uname -m"
+				;;
+		
+			esac
+		;;
+		
+		MINGW_*|MSYS_*|*WIN*)
+			caddy_dl_ext='zip'
+			caddy_os='windows'
+			caddy_bin='caddy.exe'
+			export CASE_SENSITIVE_PATH=false
+			
+			download_caddy_fail "Windows is not supported by this script"
+		;;
+		
+		*)
+			download_caddy_fail "Unsupported operating system '$unameOperatingSystem' from uname"
+		;;
+		
+	esac
+}
+
+# Need to do this for Linux to run on ports < 1024:-
+# 	setcap cap_net_bind_service=+ep "$caddyServerFilePath"
+core_dependency_requires '*' uname
+core_dependency_requires '*' rm
+core_dependency_requires '*' wget
+core_dependency_requires '*' unzip
+core_dependency_requires '*' tar
+core_dependency_requires '*' chmod
+core_dependency_requires '*' cp
+core_dependency_requires '*' ln
+lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local pluginsListFilePath="$TMP_FILE"
+
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local deploymentTargetsFile="$TMP_FILE"
+	
+	caddy_plugin()
+	{
+		local pluginName="$1"
+		printf '%s\n' "$pluginName" >>"$pluginsListFilePath"
+	}
+	
+	deployment_target()
+	{
+		local operatingSystem="$1"
+		local architecture="$2"
+		printf '%s,%s\n' >>"$deploymentTargetsFile"
+	}
+	
+	printf '%s,%s\n' "$(uname)" "$(uname -m)" >>"$deploymentTargetsFile"
+	
+	local caddyConfigurationFilePath="$lemonade_inputPath"/configuration.sh
+
+	. "$caddyConfigurationFilePath"
+	
+	local caddy_plugins
+	_lemonade_download_caddy_findPlugins
+	
+	local operatingSystem
+	local architecture
+	while IFS=',' read -r operatingSystem architecture
+	do
+		local caddy_os
+		local caddy_arch
+		local caddy_arm
+		local caddy_dl_ext
+		local caddy_bin
+		_lemonade_download_caddy_findOperatingSystemAndMachine "$operatingSystem" "$architecture"
+		
+		local caddyExtractFolderPath="$_lemonade_cacheFolderPath"/downloaded-caddy-binary
+		local caddyServerBinaryName=caddy."${caddy_os}"."${caddy_arch}${caddy_arm}"."${caddy_plugins}"
+		local caddyServerFilePath="$caddyExtractFolderPath"/"$caddyServerBinaryName"
+		local caddySymlinkName=caddy."$operatingSystem"."$architecture"
+	
+		mkdir -m 0700 -p "$caddyExtractFolderPath"
+		
+		if [ ! -e "$caddyServerFilePath" ]; then
+			
+			local caddyArchiveFilePath="$temporaryFolderPath"/caddy."${caddy_dl_ext}"
+			rm -rf "$caddyArchiveFilePath"
+			set +e
+				wget -O "$caddyArchiveFilePath" "https://caddyserver.com/download/${caddy_os}/${caddy_arch}${caddy_arm}?plugins=${caddy_plugins}" 1>/dev/null 2>/dev/null
+				local exitCode=$?
+			set -e
+			if [ $exitCode -ne 0 ]; then
+				rm -rf "$caddyArchiveFilePath"
+				core_exitError $core_commandLine_exitCode_PROTOCOL "wget of caddy failed with code '$exitCode'"
+			fi
+		
+			case "$caddy_dl_ext" in
+			
+				zip)
+					unzip -o "$caddyArchiveFilePath" "$caddy_bin" -d "$caddyExtractFolderPath" 1>/dev/null 2>/dev/null
+				;;
+			
+				tar.gz)
+					tar -xf "$caddyArchiveFilePath" -C "$caddyExtractFolderPath" "$caddy_bin" 1>/dev/null 2>/dev/null
+				;;
+			
+				*)
+					core_exitError $core_commandLine_exitCode_SOFTWARE "Unexpected extension for caddy_dl_ext '$caddy_dl_ext'"
+				;;
+			
+			esac
+			
+			rm -rf "$caddyArchiveFilePath"
+			
+			chmod 0500 "$caddyServerFilePath"
+			
+		fi
+		
+		# Copy binary and set-up a symlink
+		local destinationBinFolderPath="$_lemonade_finalOutputPath"/bin
+		mkdir -m 0700 -p "$destinationBinFolderPath"
+		cp "$caddyServerFilePath" "$destinationBinFolderPath"
+		chmod 0500 "$destinationBinFolderPath"/"$caddyServerBinaryName"
+		pushd "$caddyExtractFolderPath"
+			ln -s "$caddyServerBinaryName" "$caddySymlinkName"
+		popd
+		
+	done <"$deploymentTargetsFile"
+	
+	# Write a simple wrapper script
+}
