@@ -18,18 +18,16 @@ lemonade_all()
 	_lemonade_finalOutputPath="$lemonade_outputPath"/site
 	_lemonade_rootOutputPath="$_lemonade_finalOutputPath"/root
 	_lemonade_cacheFolderPath="$lemonade_inputPath"/cache
+		
+	lemonade_caddy_copyOutline
 	
 	lemonade_configuration
 	
-	lemonade_caddy_copyOutline
 	lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied
 	
 	# Javascript processing
 	#  concatenation  - ordering and layout is problematic
 	#  www.jsweet.org - Java to TypeScript to JavaScript; much higher bar, better refactoring, etc
-	
-	lemonade_css_compileSassToCssAndAutoprefix "$lemonade_inputPath"/sass/files "$_lemonade_rootOutputPath" 'css'
-	lemonade_css_compileSassToCssAndAutoprefix "$lemonade_inputPath"/hugo/layouts "$lemonade_inputPath"/hugo/layouts 'html'
 	
 	lemonade_favicon_getRealFavicon
 	
@@ -132,7 +130,6 @@ lemonade_lockDownFilePermissions()
 	find -d "$lemonade_outputPath"/site -type f -exec chmod 0400 {} \;
 	find -d "$lemonade_outputPath"/site -type d -exec chmod 0500 {} \;
 	
-
 	find -d "$lemonade_outputPath"/site/bin -type f -exec chmod 0500 {} \;
 	chmod 0500 "$lemonade_outputPath"/site/caddy-wrapper
 }

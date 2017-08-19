@@ -9,7 +9,6 @@ lemonade_css_compileSassToCssAndAutoprefix()
 {
 	local inputFolderPath="$1"
 	local outputFolderPath="$2"
-	local fileExtension="$3"
 	
 	local pluginPath="$lemonade_inputPath"/sass/plugins
 	mkdir -m 0700 -p "$pluginPath"
@@ -42,8 +41,8 @@ lemonade_css_compileSassToCssAndAutoprefix()
 			local sassFilePath
 			find . -type f -name '*.'"$fileExtension" | while IFS= read -r sassFilePath
 			do
-				local withoutFileExtension="${sassFilePath%.*}"
-				local outputFilePath="$outputFolderPath"/"${withoutFileExtension}.${fileExtension}"
+				local withoutFinalFileExtension="${sassFilePath%.*}"
+				local outputFilePath="$outputFolderPath"/"$withoutFinalFileExtension"
 			
 				local parentFolderPath="${outputFilePath%/*}"
 				mkdir -m 0700 -p "$parentFolderPath"
