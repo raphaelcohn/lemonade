@@ -67,5 +67,5 @@ lemonade_favicon_getRealFavicon()
 	unzip -o "$staticFilePath" -d "$_lemonade_rootOutputPath" 1>/dev/null 2>/dev/null
 	
 	mkdir -m 0700 -p "$lemonade_inputPath"/hugo/layouts/partials
-	cp "$outputFaviconFolderPath"/favicons.html "$lemonade_inputPath"/hugo/layouts/partials
+	cp "$outputFaviconFolderPath"/favicons.html "$lemonade_inputPath"/hugo/layouts/partials/header.favicons.html
 }

@@ -40,6 +40,7 @@ lemonade_all()
 	lemonade_minify
 	lemonade_compress
 	
+	lemonade_removeGitRelics
 	lemonade_lockDownFilePermissions
 }
 
@@ -121,6 +122,11 @@ lemonade_compress()
 			done
 		done
 	done
+}
+
+lemonade_removeGitRelics()
+{
+	find -d "$_lemonade_finalOutputPath"/root -name '.git*' -exec rm -rf {} \;
 }
 
 core_dependency_requires '*' find

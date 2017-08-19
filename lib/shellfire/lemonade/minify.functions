@@ -28,7 +28,10 @@ lemonade_minify()
 	
 	mkdir -m 0700 -p "$minifiedFolderPath"
 	
-	minify --type xml --type svg --type css --type js --type json --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath" || true
+	minify --match=\.js --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"
+	minify --match=\.json --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"
+	minify --match=\.svg --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"
+	minify --match=\.xml --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"
 	rsync --archive --quiet "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"/
 	
 	rm -rf "$minifiedFolderPath"
