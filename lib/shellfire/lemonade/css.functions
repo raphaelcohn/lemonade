@@ -1,0 +1,69 @@
+# This file is part of lemonade. It is subject to the licence terms in the COPYRIGHT file found in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT. No part of lemonade, including this file, may be copied, modified, propagated, or distributed except according to the terms contained in the COPYRIGHT file.
+# Copyright © 2014-2015 The developers of lemonade. See the COPYRIGHT file in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT.
+
+
+core_dependency_requires '*' mkdir
+core_dependency_requires '*' find
+core_dependency_requires '*' sassc
+lemonade_css_compileSassToCss()
+{
+	local inputFolderPath="$1"
+	local outputFolderPath="$2"
+	local fileExtension="$3"
+	
+	local pluginPath="$lemonade_inputPath"/sass/plugins
+	mkdir -m 0700 -p "$pluginPath"
+	set -- --style compressed --plugin-path "$pluginPath"
+	
+	local importsPath="$lemonade_inputPath"/sass/imports
+	mkdir -m 0700 -p "$importsPath"
+	
+	local loadPath
+	set +f
+	for loadPath in "$importsPath"/*
+	do
+		set -f
+		if [ -d "$loadPath" ]; then
+			set -- "$@" --load-path "$loadPath"
+		fi
+	done
+	set -f
+	
+	precision()
+	{
+		_precision="$1"
+	}
+	
+	pushd "$inputFolderPath"
+		
+		local fileExtension
+		for fileExtension in sass scss
+		do
+			local sassFilePath
+			find . -type f -name '*.'"$fileExtension" | while IFS= read -r sassFilePath
+			do
+				local withoutFileExtension="${sassFilePath%.*}"
+				local outputFilePath="$outputFolderPath"/"${withoutFileExtension}.${fileExtension}"
+			
+				local parentFolderPath="${outputFilePath%/*}"
+				mkdir -m 0700 -p "$parentFolderPath"
+
+				local _precision=5
+			
+				local optionsFilePath="$sassFilePath".options
+				if [ -s "$optionsFilePath" ]; then
+					. "$optionsFilePath"
+				fi
+				
+				if [ "$fileExtension" = 'sass' ]; then
+					sassc "$@" --sass "$sassFilePath" "$outputFilePath"
+				else
+					sassc "$@" "$sassFilePath" "$outputFilePath"
+				fi
+				
+				sassc "$@" 
+			done
+		done
+		
+	popd
+}

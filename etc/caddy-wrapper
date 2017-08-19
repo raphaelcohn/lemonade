@@ -83,6 +83,7 @@ caddy_wrapper_fail()
 
 caddy_wrapper_assertProgramIsPresent()
 {
+	local commandToFind="$1"
 	if ! command -v "$commandToFind" 1>/dev/null 2>/dev/null; then
 		caddy_wrapper_fail "Essential command '$commandToFind' is not on the PATH"
 	fi
