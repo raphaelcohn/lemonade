@@ -5,7 +5,6 @@
 core_dependency_requires '*' rsync
 core_dependency_requires '*' cp
 core_dependency_requires '*' mkdir
-core_dependency_requires '*' touch
 lemonade_caddy_copyOutline()
 {
 	mkdir -m 0700 -p "$_lemonade_finalOutputPath"
@@ -16,11 +15,5 @@ lemonade_caddy_copyOutline()
 	for folderNameToEnsureExists in environments/production/caddyfiles errors markdown-templates root
 	do
 		mkdir -m 0700 -p "$_lemonade_finalOutputPath"/"$folderNameToEnsureExists"
-	done
-	
-	local fileNameToEnsureExists
-	for fileNameToEnsureExists in caddy.configuration.sh Caddyfile
-	do
-		touch "$fileNameToEnsureExists"
 	done
 }
