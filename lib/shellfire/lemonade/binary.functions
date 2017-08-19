@@ -18,13 +18,13 @@ lemonade_binary_addStandaloneBinaryPackageToPath()
 core_dependency_requires '*' npm
 core_dependency_requires '*' ln
 lemonade_binary_installAndAddNpmBinariesToThePath()
-	
+{
 	pushd "$_program_binPath"
 	
 		local package="$1"
 		for package in "$@"
 		do
-			npm install --silent "$package"
+			npm install --production --silent "$package" 1>/dev/null
 		done
 		
 	popd

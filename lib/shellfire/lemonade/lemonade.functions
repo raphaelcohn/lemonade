@@ -5,12 +5,12 @@
 # Alpine Linux lacks brotli, pngquant (edge/community) and jpegoptim (edge/community)
 
 
-core_usesIn lemonade binary caddy css download_caddy image_crush
+core_usesIn lemonade binary caddy configuration css download_caddy favicon image_crush minify
 
 lemonade_all()
 {
 	lemonade_binary_addStandaloneBinaryPackageToPath jq hugo minify
-	lemonade_binary_installAndAddNpmBinariesToThePath autoprefixer-cli@1.0.0
+	lemonade_binary_installAndAddNpmBinariesToThePath autoprefixer-cli@1.0.0 html-minifier@3.5.3
 	
 	lemonade_makeInputPathAbsolute
 	lemonade_createOutputFolder
@@ -19,6 +19,8 @@ lemonade_all()
 	_lemonade_rootOutputPath="$_lemonade_finalOutputPath"/root
 	_lemonade_cacheFolderPath="$lemonade_inputPath"/cache
 	
+	lemonade_configuration
+	
 	lemonade_caddy_copyOutline
 	lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied
 	
@@ -26,8 +28,8 @@ lemonade_all()
 	#  concatenation  - ordering and layout is problematic
 	#  www.jsweet.org - Java to TypeScript to JavaScript; much higher bar, better refactoring, etc
 	
-	lemonade_css_compileSassToCss "$lemonade_inputPath"/sass/files "$_lemonade_rootOutputPath" 'css'
-	lemonade_css_compileSassToCss "$lemonade_inputPath"/hugo/layouts "$lemonade_inputPath"/hugo/layouts 'html'
+	lemonade_css_compileSassToCssAndAutoprefix "$lemonade_inputPath"/sass/files "$_lemonade_rootOutputPath" 'css'
+	lemonade_css_compileSassToCssAndAutoprefix "$lemonade_inputPath"/hugo/layouts "$lemonade_inputPath"/hugo/layouts 'html'
 	
 	lemonade_favicon_getRealFavicon
 	
@@ -36,6 +38,7 @@ lemonade_all()
 	lemonade_image_crush_allPng
 	lemonade_image_crush_allJpeg
 	lemonade_image_crush_allGif
+	lemonade_minify_html
 	lemonade_minify
 	lemonade_compress
 	
@@ -93,21 +96,6 @@ lemonade_runHugo()
 	
 	# Some hugo themes incorrectly using `.gitkeep`
 	find -d "$lemonade_outputPath"/site -type f -name '.gitkeep' -exec rm -rf {} \;
-}
-
-core_dependency_requires '*' mkdir
-core_dependency_requires '*' rsync
-core_dependency_requires '*' rm
-lemonade_minify()
-{
-	local minifiedFolderPath="$lemonade_outputPath"/minified
-	
-	mkdir -m 0700 -p "$minifiedFolderPath"
-	
-	minify --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath" || true
-	rsync --archive --quiet "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"/
-	
-	rm -rf "$minifiedFolderPath"
 }
 
 core_dependency_requires '*' find

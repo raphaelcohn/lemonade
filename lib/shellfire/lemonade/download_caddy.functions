@@ -9,7 +9,7 @@ _lemonade_download_caddy_findPlugins()
 	core_temporaryFiles_newFileToRemoveOnExit
 	local sortedPluginsListFilePath="$TMP_FILE"
 	
-	sort -u "$pluginsListFilePath" >"$sortedPluginsListFilePath"
+	sort -u "$_lemonade_pluginsListFilePath" >"$sortedPluginsListFilePath"
 	
 	caddy_plugins=''
 	local pluginName
@@ -232,7 +232,6 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 
 # Need to do this for Linux to run on ports < 1024:-
 # 	setcap cap_net_bind_service=+ep "$caddyServerFilePath"
-core_dependency_requires '*' uname
 core_dependency_requires '*' rm
 core_dependency_requires '*' wget
 core_dependency_requires '*' unzip
@@ -242,33 +241,6 @@ core_dependency_requires '*' cp
 core_dependency_requires '*' ln
 lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied()
 {
-	local TMP_FILE
-	core_temporaryFiles_newFileToRemoveOnExit
-	local pluginsListFilePath="$TMP_FILE"
-
-	local TMP_FILE
-	core_temporaryFiles_newFileToRemoveOnExit
-	local deploymentTargetsFile="$TMP_FILE"
-	
-	caddy_plugin()
-	{
-		local pluginName="$1"
-		printf '%s\n' "$pluginName" >>"$pluginsListFilePath"
-	}
-	
-	deployment_target()
-	{
-		local operatingSystem="$1"
-		local architecture="$2"
-		printf '%s,%s\n' "$operatingSystem" "$architecture" >>"$deploymentTargetsFile"
-	}
-	
-	printf '%s,%s\n' "$(uname)" "$(uname -m)" >>"$deploymentTargetsFile"
-	
-	local caddyConfigurationFilePath="$lemonade_inputPath"/configuration.sh
-
-	. "$caddyConfigurationFilePath"
-	
 	local caddy_plugins
 	_lemonade_download_caddy_findPlugins
 	
@@ -334,7 +306,7 @@ lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied()
 			ln -s "$caddyServerBinaryName" "$caddySymlinkName"
 		popd
 		
-	done <"$deploymentTargetsFile"
+	done <"$_lemonade_deploymentTargetsFile"
 	
 	cp "$_program_etcPath"/caddy "$_lemonade_finalOutputPath"/bin
 	chmod 0500 "$_lemonade_finalOutputPath"/bin/caddy

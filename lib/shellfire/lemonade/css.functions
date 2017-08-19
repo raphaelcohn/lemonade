@@ -5,7 +5,7 @@
 core_dependency_requires '*' mkdir
 core_dependency_requires '*' find
 core_dependency_requires '*' sassc
-lemonade_css_compileSassToCss()
+lemonade_css_compileSassToCssAndAutoprefix()
 {
 	local inputFolderPath="$1"
 	local outputFolderPath="$2"
@@ -61,7 +61,7 @@ lemonade_css_compileSassToCss()
 					sassc "$@" "$sassFilePath" "$outputFilePath"
 				fi
 				
-				sassc "$@" 
+				autoprefixer-cli --browsers "$_lemonade_autoprefixBrowsers" --clean --no-map "$outputFilePath"
 			done
 		done
 		
