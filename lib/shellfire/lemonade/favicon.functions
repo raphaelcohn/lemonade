@@ -50,8 +50,8 @@ lemonade_favicon_getRealFavicon()
 	local outputFaviconFolderPath="$_lemonade_cacheFolderPath"/generated-favicons
 	mkdir -m 0700 -p "$outputFaviconFolderPath"
 	
-	local masterPictureFilePath="$inputFaviconFolderPath"/master-picture
-	local cachedMasterPictureFilePath="$outputFaviconFolderPath"/master-picture
+	local masterPictureFilePath="$inputFaviconFolderPath"/master-picture.png
+	local cachedMasterPictureFilePath="$outputFaviconFolderPath"/master-picture.png
 	
 	local requestTemplateFilePath="$inputFaviconFolderPath"/RealFaviconGenerator.request.template.json
 	local cachedRequestTemplateFilePath="$outputFaviconFolderPath"/RealFaviconGenerator.request.template.json
@@ -66,6 +66,6 @@ lemonade_favicon_getRealFavicon()
 
 	unzip -o "$staticFilePath" -d "$_lemonade_rootOutputPath" 1>/dev/null 2>/dev/null
 	
-	mkdir -m 0700 -p "$lemonade_inputPath"/hugo/layouts/partials
-	cp "$outputFaviconFolderPath"/favicons.html "$lemonade_inputPath"/hugo/layouts/partials/header.favicons.html
+	mkdir -m 0700 -p "$lemonade_inputPath"/hugo/layouts/partials/structure
+	cp "$outputFaviconFolderPath"/favicons.html "$lemonade_inputPath"/hugo/layouts/partials/structure/header.favicons.html
 }

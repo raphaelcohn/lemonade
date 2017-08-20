@@ -1,0 +1,459 @@
+# This file is part of lemonade. It is subject to the licence terms in the COPYRIGHT file found in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT. No part of lemonade, including this file, may be copied, modified, propagated, or distributed except according to the terms contained in the COPYRIGHT file.
+# Copyright © 2014-2015 The developers of lemonade. See the COPYRIGHT file in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT.
+
+
+core_dependency_requires '*' find
+core_dependency_requires '*' wc
+_lemonade_validate_output_onlyFilesAndFolders()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$_lemonade_temporaryFolderPath"/things-which-arent-files-or-folders.txt
+	
+	# NOTE: Omits Solaris 'door' type, which is non-POSIX
+	local typeCode
+	for typeCode in b c p s
+	do
+		find "$_lemonade_siteOutputFolderPath" -type "$typeCode" >"$filesPath"
+	done
+	
+	# test -s doesn't work reliably on Mac OS X
+	if [ "$(wc -c "$filesPath" | awk '{print $1}')" != '0' ]; then
+		core_exitError $core_commandLine_exitCode_FAILURE "There are items which aren't files or folders in '$_lemonade_siteOutputFolderPath', check '$filesPath'"
+	fi
+}
+
+core_dependency_requires '*' find
+_lemonade_validate_output_noBrokenSymlinks()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$_lemonade_temporaryFolderPath"/broken-symbolic-links.txt
+	
+	find "$_lemonade_siteOutputFolderPath" -type l ! -exec test -e {} \; -print >"$filesPath"
+	
+	# test -s doesn't work reliably on Mac OS X
+	if [ "$(wc -c "$filesPath" | awk '{print $1}')" != '0' ]; then
+		core_exitError $core_commandLine_exitCode_FAILURE "There are broken symbolic links in '$_lemonade_siteOutputFolderPath', check '$filesPath'"
+	fi
+}
+
+core_dependency_requires '*' file
+_lemonade_validate_output_errors()
+{
+	pushd "$_lemonade_siteOutputFolderPath"/errors
+	
+		local path
+		set +f
+		for path in *
+		do
+			if [ ! -e "$path" ]; then
+				continue
+			fi
+		
+			if [ ! -f "$path" ]; then
+				core_exitError $core_commandLine_exitCode_FAILURE "There should not be anything but files in '$_lemonade_siteOutputFolderPath/errors' (found '$path')"
+			fi
+		
+			if [ ! -s "$path" ]; then
+				core_exitError $core_commandLine_exitCode_FAILURE "All error files should have content; '$path' does not"
+			fi
+			
+			case "$path" in
+				
+				*.html)
+					local charset="$(file --dereference --mime-encoding --brief "$path")"
+					case "$charset" in
+						
+						utf-8|us-ascii)
+							:
+						;;
+						
+						*)
+							core_exitError $core_commandLine_exitCode_FAILURE "All error files should by UTF-8 or US-ASCII; '$path' is not"
+						;;
+						
+					esac
+				;;
+				
+				*)
+					core_exitError $core_commandLine_exitCode_FAILURE "There should be only .html files in errors, not '$path'"
+				;;
+				
+			esac
+			
+			
+		done
+		
+	popd
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' file
+_lemonade_validate_output_nonUtf8Files()
+{
+	local fileExtension="$1"
+	
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	find "$_lemonade_siteOutputFolderPath"/root -type f -name '*.'"${fileExtension}" >"$filesPath"
+	local filePath
+	while IFS= read -r filePath
+	do
+		local charset="$(file --dereference --mime-encoding --brief "$filePath")"
+		case "$charset" in
+			
+			utf-8|us-ascii)
+				:
+			;;
+			
+			*)
+				local isEmpty="$(file --dereference --mime-type --brief "$filePath")"
+				if [ "$isEmpty" != 'inode/x-empty' ]; then
+					core_exitError $core_commandLine_exitCode_FAILURE "All '$fileExtension' files should by UTF-8 or US-ASCII; '$filePath' is not"
+				fi
+			;;
+			
+		esac
+	done <"$filesPath"
+}
+
+core_dependency_requires '*' find
+_lemonade_validate_output_warnUnusualFileExtensions()
+{
+	local fileExtension="$1"
+	local reason="$2"
+	
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	find "$_lemonade_siteOutputFolderPath"/root -type f -name '*.'"${fileExtension}" >"$filesPath"
+	local filePath
+	while IFS= read -r filePath
+	do
+		core_message WARN "$reason (at '$filePath')."
+	done <"$filesPath"
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' file
+_lemonade_validate_output_mimeTypeMatchesFileExtension()
+{
+	local fileExtension="$1"
+	local mimeType="$2"
+	
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	find "$_lemonade_siteOutputFolderPath"/root -type f -name '*.'"${fileExtension}" >"$filesPath"
+	local filePath
+	while IFS= read -r filePath
+	do
+		local actualMimeType="$(file --dereference --mime-encoding --brief "$filePath")"
+		
+		if [ "$actualMimeType" = "$mimeType" ]; then
+			:
+		elif [ "$actualMimeType" = 'inode/x-empty' ]; then
+			:
+		else
+			core_exitError $core_commandLine_exitCode_FAILURE "All '$fileExtension' files should have the MIME type '$mimeType'; '$filePath' has '$actualMimeType' instead"
+		fi
+		
+	done <"$filesPath"
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' file
+_lemonade_validate_output_isTextual()
+{
+	local fileExtension="$1"
+	
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	find "$_lemonade_siteOutputFolderPath"/root -type f -name '*.'"${fileExtension}" >"$filesPath"
+	local filePath
+	while IFS= read -r filePath
+	do
+		local actualMimeType="$(file --dereference --mime-encoding --brief "$path")"
+		
+		case "$actualMimeType" in
+			
+			inode/x-empty)
+				:
+			;;
+			
+			text/plain)
+				:
+			;;
+			
+			*)
+				core_exitError $core_commandLine_exitCode_FAILURE "All '$fileExtension' files should be textual; '$filePath' has MIME type '$actualMimeType' instead"
+			;;
+			
+		esac
+		
+	done <"$filesPath"
+}
+
+core_dependency_requires '*' find
+_lemonade_validate_output_isNotEmpty()
+{
+	local fileExtension="$1"
+	
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	find "$_lemonade_siteOutputFolderPath"/root -type f -name '*.'"${fileExtension}" >"$filesPath"
+	local filePath
+	while IFS= read -r filePath
+	do
+		# test -s doesn't work reliably on Mac OS X
+		if [ "$(wc -c "$filesPath" | awk '{print $1}')" != '0' ]; then
+			core_exitError $core_commandLine_exitCode_FAILURE "All '$fileExtension' files MUST NOT be empty; '$filePath' is"
+		fi
+	done <"$filesPath"
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' tr
+_lemonade_validate_output_urlsAreSimple()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	
+	pushd "$_lemonade_siteOutputFolderPath"/root
+		
+		find . >"$filesPath"
+		local filePath
+		while IFS= read -r filePath
+		do
+			if [ -d "$filePath" ]; then
+				local characters='abcdefghijklmnopqrstuvwxyz0123456789-'
+			else
+				local characters='abcdefghijklmnopqrstuvwxyz0123456789-.'
+			fi
+			
+			local stripped="$(printf '%s\n' "$filePath" | tr -C -d "$characters")"
+			
+			if [ "${#stripped}" != "${#filePath}" ]; then
+				core_message WARN "URL is not optimal (at '$filePath'); URLs should be a-z, 0-9, hyphen, and, if a file, period"
+			fi
+					
+		done <"$filesPath"
+		
+	popd
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' hxnormalize
+core_dependency_requires '*' hxselect
+core_dependency_requires '*' head
+core_dependency_requires '*' hxpipe
+core_dependency_requires '*' awk
+core_dependency_requires '*' tr
+_lemonade_validate_output_htmlDescriptionsAreSimple()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	
+	pushd "$_lemonade_siteOutputFolderPath"/root
+		
+		find . -type f -name '*.html' >"$filesPath"
+		local filePath
+		while IFS= read -r filePath
+		do
+			local description="$(hxnormalize -x -e "$filePath" | hxselect -l en -i 'html > head > meta[name=description]' | head -n 1 | hxpipe | awk '$1 ~ /^Acontent/ {print $3}')"
+			
+			if [ ${#description} -eq 0 ]; then
+				core_message WARN "HTML missing useful meta-tag for description at '$filePath'"
+			elif [ ${#description} -gt 160 ]; then
+				core_message WARN "HTML has overlong meta-tag (160+ characters) for description at '$filePath'"
+			fi
+
+			local stripped="$(printf '%s\n' "$description" | tr -C -d 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.!?$£@&- ')"
+		
+			if [ ${#stripped} -ne ${#description} ]; then
+				core_message WARN "HTML has inappropriate characters in meta-tag for description at '$filePath'; only A-Z, a-z, 0-9, currencies and a little punctuation is allowed"
+			fi
+			
+			case "$description" in
+				
+				*'.')
+					:
+				;;
+				
+				*'?')
+					:
+				;;
+				
+				*'!')
+					:
+				;;
+				
+				*)
+					core_message WARN "HTML meta-tag for description at '$filePath' does not end in '.', '?' or '!'"
+				;;
+				
+			esac
+			
+		done <"$filesPath"
+		
+	popd
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' hxnormalize
+core_dependency_requires '*' hxselect
+core_dependency_requires '*' head
+core_dependency_requires '*' tr
+_lemonade_validate_output_htmlTitlesAreSimple()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	
+	pushd "$_lemonade_siteOutputFolderPath"/root
+		
+		find . -type f -name '*.html' >"$filesPath"
+		local filePath
+		while IFS= read -r filePath
+		do
+			# if [ -d "$filePath" ]; then
+			# 	local characters='abcdefghijklmnopqrstuvwxyz0123456789-'
+			# else
+			# 	local characters='abcdefghijklmnopqrstuvwxyz0123456789-.'
+			# fi
+			
+			# <meta name="description" content="{{ .Description }}">
+			
+			local title="$(hxnormalize -x -e "$filePath" | hxselect -l en -i -c 'html > head > title' | head -n 1)"
+			
+			if [ ${#title} -eq 0 ]; then
+				core_message WARN "HTML missing title at '$filePath'"
+			elif [ ${#title} -gt 60 ]; then
+				core_message WARN "HTML has overlong title (60+ characters) for description at '$filePath'"
+			fi
+
+			local stripped="$(printf '%s\n' "$title" | tr -C -d 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:| ')"
+		
+			if [ ${#stripped} -ne ${#title} ]; then
+				core_message WARN "HTML has inappropriate characters in title at '$filePath'; only A-Z, a-z, 0-9, and a little punctuation is allowed"
+			fi
+			
+			case "$description" in
+				
+				*' ')
+					core_message WARN "HTML title at '$filePath' ends in ' '"
+				;;
+				
+				*'|')
+					core_message WARN "HTML title at '$filePath' ends in '|'"
+				;;
+				
+				*':')
+					core_message WARN "HTML title at '$filePath' ends in ':'"
+				;;
+				
+				*)
+					:
+				;;
+				
+			esac
+			
+		done <"$filesPath"
+		
+	popd
+}
+
+lemonade_validate_output()
+{
+	_lemonade_validate_output_onlyFilesAndFolders
+	
+	_lemonade_validate_output_noBrokenSymlinks
+	
+	_lemonade_validate_output_errors
+	
+	_lemonade_validate_output_nonUtf8Files html
+	_lemonade_validate_output_nonUtf8Files xml
+	_lemonade_validate_output_nonUtf8Files svg
+	_lemonade_validate_output_nonUtf8Files css
+	_lemonade_validate_output_nonUtf8Files js
+	_lemonade_validate_output_nonUtf8Files json
+	_lemonade_validate_output_nonUtf8Files tsv
+	_lemonade_validate_output_nonUtf8Files csv
+	_lemonade_validate_output_nonUtf8Files txt
+	
+	_lemonade_validate_output_mimeTypeMatchesFileExtension png image/png
+	_lemonade_validate_output_mimeTypeMatchesFileExtension jpg image/jpeg
+	_lemonade_validate_output_mimeTypeMatchesFileExtension gif image/gif
+	_lemonade_validate_output_mimeTypeMatchesFileExtension ico image/x-icon
+	_lemonade_validate_output_mimeTypeMatchesFileExtension svg image/svg+xml
+	_lemonade_validate_output_mimeTypeMatchesFileExtension html text/html
+	_lemonade_validate_output_mimeTypeMatchesFileExtension xml text/xml
+	_lemonade_validate_output_mimeTypeMatchesFileExtension txt text/plain
+	_lemonade_validate_output_mimeTypeMatchesFileExtension woff application/font-woff
+	_lemonade_validate_output_mimeTypeMatchesFileExtension ttf application/x-font-ttf
+	
+	# The file command can't actually check these MIME types
+	_lemonade_validate_output_isTextual css
+	_lemonade_validate_output_isTextual csv
+	_lemonade_validate_output_isTextual tsv
+	_lemonade_validate_output_isTextual js
+	_lemonade_validate_output_isTextual json
+	
+	_lemonade_validate_output_isNotEmpty html
+	_lemonade_validate_output_isNotEmpty xml
+	_lemonade_validate_output_isNotEmpty svg
+	_lemonade_validate_output_isNotEmpty json
+	
+	# Web fonts (as well as SVG)
+	# woff2 (not recognised)
+	# eot (not recognised)
+	
+	_lemonade_validate_output_warnUnusualFileExtensions htm "Files ending .htm are likely to be mistakes; rename them to .html"
+	_lemonade_validate_output_warnUnusualFileExtensions jpeg "Files ending .jpeg are likely to be mistakes; rename them to .jpg"
+	_lemonade_validate_output_warnUnusualFileExtensions sass "Files ending .sass are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions scss "Files ending .scss are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions less "Files ending .less are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions xhtml "XHTML files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions bmp "BMP files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions pcx "PCX files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions tga "TARGA files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions tif "TIFF files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions tiff "TIFF files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions swf "Adobe Flash files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions swt "Adobe Flash files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions swc "Adobe Flash files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions flv "Adobe Flash files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions raw "RAW image files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions fla "Adobe Flash related files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions psd "Adobe Photoshop related files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions u3d "Adobe Photoshop related files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions emz "Adobe Photoshop related files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions dng "Adobe Photoshop related files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions csh "Adobe Photoshop related files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions crw "Adobe Photoshop related files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions arw "Adobe Photoshop related files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions abr "Adobe Photoshop related files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions dll "Windows libraries should not normally be served"
+	_lemonade_validate_output_warnUnusualFileExtensions obj "Windows libraries should not normally be served"
+	_lemonade_validate_output_warnUnusualFileExtensions lib "Unix libraries should not normally be served"
+	_lemonade_validate_output_warnUnusualFileExtensions php "Legacy website technologies are security problems waiting to happen"
+	_lemonade_validate_output_warnUnusualFileExtensions jsp "Legacy website technologies are security problems waiting to happen"
+	_lemonade_validate_output_warnUnusualFileExtensions asp "Legacy website technologies are security problems waiting to happen"
+	_lemonade_validate_output_warnUnusualFileExtensions aspx "Legacy website technologies are security problems waiting to happen"
+	_lemonade_validate_output_warnUnusualFileExtensions cgi "Legacy website technologies are security problems waiting to happen"
+	_lemonade_validate_output_warnUnusualFileExtensions htc "Legacy website technologies are security problems waiting to happen"
+	
+	_lemonade_validate_output_urlsAreSimple
+	
+	_lemonade_validate_output_htmlDescriptionsAreSimple
+	
+	_lemonade_validate_output_htmlTitlesAreSimple
+	
+	# Validate all internal links (hard)
+}

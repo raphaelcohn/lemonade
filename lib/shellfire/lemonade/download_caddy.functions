@@ -264,8 +264,7 @@ lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied()
 		
 		if [ ! -e "$caddyServerFilePath" ]; then
 			
-			local caddyArchiveFilePath="$temporaryFolderPath"/caddy."${caddy_dl_ext}"
-			rm -rf "$caddyArchiveFilePath"
+			local caddyArchiveFilePath="$_lemonade_temporaryFolderPath"/caddy."${caddy_dl_ext}"
 			set +e
 				wget -O "$caddyArchiveFilePath" "https://caddyserver.com/download/${caddy_os}/${caddy_arch}${caddy_arm}?plugins=${caddy_plugins}" 1>/dev/null 2>/dev/null
 				local exitCode=$?
@@ -293,12 +292,13 @@ lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied()
 			
 			rm -rf "$caddyArchiveFilePath"
 			
-			chmod 0500 "$caddyServerFilePath"
+			mv "$caddyExtractFolderPath"/"$caddy_bin" "$caddyServerFilePath"
 			
+			chmod 0500 "$caddyServerFilePath"
 		fi
 		
 		# Copy binary and set-up a symlink
-		local destinationBinFolderPath="$_lemonade_finalOutputPath"/bin
+		local destinationBinFolderPath="$_lemonade_siteOutputFolderPath"/bin
 		mkdir -m 0700 -p "$destinationBinFolderPath"
 		cp "$caddyServerFilePath" "$destinationBinFolderPath"
 		chmod 0500 "$destinationBinFolderPath"/"$caddyServerBinaryName"
@@ -308,9 +308,9 @@ lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied()
 		
 	done <"$_lemonade_deploymentTargetsFile"
 	
-	cp "$_program_etcPath"/caddy "$_lemonade_finalOutputPath"/bin
-	chmod 0500 "$_lemonade_finalOutputPath"/bin/caddy
+	cp "$_program_etcPath"/caddy "$_lemonade_siteOutputFolderPath"/bin
+	chmod 0500 "$_lemonade_siteOutputFolderPath"/bin/caddy
 	
-	cp "$_program_etcPath"/caddy-wrapper "$_lemonade_finalOutputPath"
-	chmod 0500 "$_lemonade_finalOutputPath"/caddy-wrapper
+	cp "$_program_etcPath"/caddy-wrapper "$_lemonade_siteOutputFolderPath"
+	chmod 0500 "$_lemonade_siteOutputFolderPath"/caddy-wrapper
 }

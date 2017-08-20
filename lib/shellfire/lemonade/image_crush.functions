@@ -6,17 +6,17 @@ core_dependency_requires '*' find
 core_dependency_requires '*' rm
 core_dependency_requires '*' pngquant
 core_dependency_requires '*' optipng
-lemonade_image_crush_allPng()
+lemonade_image_crush_png()
 {
 	pushd "$_lemonade_rootOutputPath"
 		
 		local imageFilePath
 		find . -type f -name '*.png' | while IFS= read -r imageFilePath
 		do
-			local optimisationSettingsFilePath="$imageFilePath".lossy
+			local optimisationSettingsFilePath="$imageFilePath".options
 			if [ -f "$optimisationSettingsFilePath" ]; then
 				
-				local _minimum=0
+				local _minimum=100
 				local _maximum=100
 				
 				minimum()
@@ -31,7 +31,13 @@ lemonade_image_crush_allPng()
 				
 				. "$optimisationSettingsFilePath"
 				
-				pngquant --quality "$_minimum"-"$_maximum" --skip-if-larger --speed 1 --strip --force --ext .png "$imageFilePath"
+				if [ $_minimum -gt $_maximum ]; then
+					core_exitError  $core_commandLine_exitCode_CONFIG "The .options for PNG lossy crushing in the file '$optimisationSettingsFilePath' have a minimum greater than a maximum"
+				fi
+				
+				if [ $_minimum -ne 100 ]; then
+					pngquant --quality "$_minimum"-"$_maximum" --skip-if-larger --speed 1 --strip --force --ext .png "$imageFilePath"
+				fi
 				
 				rm -rf "$optimisationSettingsFilePath"
 			fi
@@ -44,7 +50,7 @@ lemonade_image_crush_allPng()
 
 core_dependency_requires '*' find
 core_dependency_requires '*' jpegoptim
-lemonade_image_crush_allJpeg()
+lemonade_image_crush_jpeg()
 {
 	pushd "$_lemonade_rootOutputPath"
 		
@@ -53,7 +59,7 @@ lemonade_image_crush_allJpeg()
 		do
 			set -- --force --preserve --preserve-perms --quiet --strip-all --all-normal
 			
-			local optimisationSettingsFilePath="$imageFilePath".lossy
+			local optimisationSettingsFilePath="$imageFilePath".options
 			if [ -f "$optimisationSettingsFilePath" ]; then
 				
 				local _maximum=100
@@ -70,7 +76,9 @@ lemonade_image_crush_allJpeg()
 				
 				. "$optimisationSettingsFilePath"
 				
-				set -- "$@" --max="$_maximum"
+				if [ $maximum -ne 100 ]; then
+					set -- "$@" --max="$_maximum"
+				fi
 								
 				rm -rf "$optimisationSettingsFilePath"
 			fi
@@ -86,7 +94,7 @@ core_dependency_requires '*' find
 core_dependency_requires '*' mv
 core_dependency_requires '*' gifsicle
 core_dependency_requires '*' rm
-lemonade_image_crush_allGif()
+lemonade_image_crush_gif()
 {
 	pushd "$_lemonade_rootOutputPath"
 		

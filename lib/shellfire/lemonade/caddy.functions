@@ -7,13 +7,13 @@ core_dependency_requires '*' cp
 core_dependency_requires '*' mkdir
 lemonade_caddy_copyOutline()
 {
-	mkdir -m 0700 -p "$_lemonade_finalOutputPath"
+	mkdir -m 0700 -p "$_lemonade_siteOutputFolderPath"
 	
-	rsync --archive --quiet --exclude='.git' --exclude='.gitignore' --exclude='.gitmodules' "$lemonade_inputPath"/caddy/ "$_lemonade_finalOutputPath"/
+	rsync --archive --quiet --exclude='.git' --exclude='.gitignore' --exclude='.gitmodules' "$lemonade_inputPath"/caddy/ "$_lemonade_siteOutputFolderPath"/
 	
 	local folderNameToEnsureExists
 	for folderNameToEnsureExists in environments/production/caddyfiles errors markdown-templates root
 	do
-		mkdir -m 0700 -p "$_lemonade_finalOutputPath"/"$folderNameToEnsureExists"
+		mkdir -m 0700 -p "$_lemonade_siteOutputFolderPath"/"$folderNameToEnsureExists"
 	done
 }

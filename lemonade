@@ -20,60 +20,60 @@ fi
 
 _program_path_find()
 {
-        if [ "${0%/*}" = "$0" ]; then
+    if [ "${0%/*}" = "$0" ]; then
 
-                # We've been invoked by the interpreter as, say, bash program
-                if [ -r "$0" ]; then
-                        pwd -P
-                # Clutching at straws; probably run via a download, anonymous script, etc, weird execve, etc
-                else
-                        printf '\n'
-                fi
-                
+        # We've been invoked by the interpreter as, say, bash program
+        if [ -r "$0" ]; then
+                pwd -P
+        # Clutching at straws; probably run via a download, anonymous script, etc, weird execve, etc
         else
-        
-                # We've been invoked with a relative or absolute path (also when invoked via PATH in a shell)
-                
-                _program_path_find_parentPath()
-                {
-                        parentPath="${scriptPath%/*}"
-                        if [ -z "$parentPath" ]; then
-                                parentPath='/'
-                        fi
-                        cd "$parentPath" 1>/dev/null
-                }
-                
-                if command -v realpath 1>/dev/null 2>/dev/null; then
-                        (
-                                scriptPath="$(realpath "$0")"
-                                
-                                _program_path_find_parentPath
-                                pwd -P
-                        )
-                elif command -v readlink 1>/dev/null 2>/dev/null; then
-                        (
-                                scriptPath="$0"
-                                
-                                while [ -L "$scriptPath" ]
-                                do
-                                        _program_path_find_parentPath
-                                        scriptPath="$(readlink "$scriptPath")"
-                                done
-
-                                _program_path_find_parentPath
-                                pwd -P
-                        )
-                else
-                        # This approach will fail in corner cases where the script itself is a symlink in a path not parallel with the concrete script
-                        (
-                                scriptPath="$0"
-                                
-                                _program_path_find_parentPath
-                                pwd -P
-                        )
-                fi
-                
+                printf '\n'
         fi
+            
+    else
+        
+	    # We've been invoked with a relative or absolute path (also when invoked via PATH in a shell)
+    
+	    _program_path_find_parentPath()
+	    {
+            parentPath="${scriptPath%/*}"
+            if [ -z "$parentPath" ]; then
+                    parentPath='/'
+            fi
+            cd "$parentPath" 1>/dev/null
+	    }
+    
+	    if command -v realpath 1>/dev/null 2>/dev/null; then
+        (
+            scriptPath="$(realpath "$0")"
+        
+            _program_path_find_parentPath
+            pwd -P
+        )
+	    elif command -v readlink 1>/dev/null 2>/dev/null; then
+        (
+            scriptPath="$0"
+        
+            while [ -L "$scriptPath" ]
+            do
+                    _program_path_find_parentPath
+                    scriptPath="$(readlink "$scriptPath")"
+            done
+
+            _program_path_find_parentPath
+            pwd -P
+        )
+	    else
+        # This approach will fail in corner cases where the script itself is a symlink in a path not parallel with the concrete script
+        (
+            scriptPath="$0"
+        
+            _program_path_find_parentPath
+            pwd -P
+        )
+	    fi
+    
+	fi
 }
 _program_path="$(_program_path_find)"
 
@@ -103,12 +103,12 @@ _program_commandLine_helpMessage()
                             Created if it doesn't exist.
                             Defaults to current working directory:-
                             $(pwd)
-  -c, --clean-output [OFF]  Clean output on start. Defaults to ON"
+  -c, --clean-cache [ON]    Clean cache on start. Defaults to OFF"
     _program_commandLine_helpMessage_optionsSpacing='     '
 	_program_commandLine_helpMessage_configurationKeys="
-  lemonade_inputPath       Equivalent to --input-path
-  lemonade_outputPath      Equivalent to --output-path
-  lemonade_cleanOutput     Equivalent to --clean-output
+  lemonade_inputPath   Equivalent to --input-path
+  lemonade_outputPath  Equivalent to --output-path
+  lemonade_cleanCache  Equivalent to --clean-cache
 "
 	_program_commandLine_helpMessage_examples="
   ${_program_name} -s /some/path
@@ -127,7 +127,7 @@ _program_commandLine_optionExists()
 			echo 'yes-argumented'
 		;;
 		
-		c|clean-output)
+		c|clean-cache)
 			echo 'yes-optionally-argumented'
 		;;
 		
@@ -148,7 +148,7 @@ _program_commandLine_processOptionWithArgument()
 			lemonade_outputPath="$optionValue"
 		;;
 		
-		c|clean-output)
+		c|clean-cache)
 			core_validate_isBoolean $core_commandLine_exitCode_USAGE 'option' "$optionNameIncludingHyphens" "$optionValue"
 			lemonade_cleanOutput="$optionValue"
 		;;
@@ -160,8 +160,8 @@ _program_commandLine_processOptionWithoutArgument()
 {
 	case "$optionName" in
 		
-		c|clean-output)
-			lemonade_cleanOutput=on
+		c|clean-cache)
+			lemonade_cleanCache=on
 		;;
 		
 	esac
@@ -190,10 +190,10 @@ _program_commandLine_validate()
 		lemonade_outputPath="$(pwd)"/output
 	fi
 	
-	if core_variable_isSet lemonade_cleanOutput; then
-		core_validate_isBoolean $core_commandLine_exitCode_CONFIG 'configuration setting' 'lemonade_cleanOutput' "$lemonade_cleanOutput"
+	if core_variable_isSet lemonade_cleanCache; then
+		core_validate_isBoolean $core_commandLine_exitCode_CONFIG 'configuration setting' 'lemonade_cleanCache' "$lemonade_cleanCache"
 	else
-		lemonade_cleanOutput=on
+		lemonade_cleanCache=on
 	fi
 }
 

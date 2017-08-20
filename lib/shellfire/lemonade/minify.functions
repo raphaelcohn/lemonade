@@ -7,14 +7,13 @@ core_dependency_requires '*' rsync
 core_dependency_requires '*' rm
 lemonade_minify_html()
 {
-	local minifiedFolderPath="$lemonade_outputPath"/minified
+	local minifiedFolderPath="$_lemonade_temporaryFolderPath"/lemonade_minify_html
 	
 	mkdir -m 0700 -p "$minifiedFolderPath"
 	
-	html-minifier --file-ext html --config-file "$lemonade_inputPath"/html-minifier.config.json --input-dir "$_lemonade_finalOutputPath"/ --output-dir "$minifiedFolderPath"/
-	html-minifier --file-ext htm --config-file "$lemonade_inputPath"/html-minifier.config.json --input-dir "$_lemonade_finalOutputPath"/ --output-dir "$minifiedFolderPath"/
-
-	rsync --archive --quiet "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"/
+	html-minifier --file-ext html --config-file "$_program_etcPath"/html-minifier.config.json --input-dir "$_lemonade_siteOutputFolderPath"/ --output-dir "$minifiedFolderPath"/
+	
+	rsync --archive --quiet "$minifiedFolderPath"/ "$_lemonade_siteOutputFolderPath"/
 	
 	rm -rf "$minifiedFolderPath"
 }
@@ -24,15 +23,16 @@ core_dependency_requires '*' rsync
 core_dependency_requires '*' rm
 lemonade_minify()
 {
-	local minifiedFolderPath="$lemonade_outputPath"/minified
+	local minifiedFolderPath="$_lemonade_temporaryFolderPath"/lemonade_minify
 	
 	mkdir -m 0700 -p "$minifiedFolderPath"
 	
-	minify --match=\.js --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"
-	minify --match=\.json --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"
-	minify --match=\.svg --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"
-	minify --match=\.xml --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"
-	rsync --archive --quiet "$minifiedFolderPath"/ "$_lemonade_finalOutputPath"/
+	minify --match=\.css --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_siteOutputFolderPath"
+	minify --match=\.js --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_siteOutputFolderPath"
+	minify --match=\.json --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_siteOutputFolderPath"
+	minify --match=\.svg --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_siteOutputFolderPath"
+	minify --match=\.xml --recursive --all --css-decimals 0 --svg-decimals 0 --html-keep-document-tags --output "$minifiedFolderPath"/ "$_lemonade_siteOutputFolderPath"
+	rsync --archive --quiet "$minifiedFolderPath"/ "$_lemonade_siteOutputFolderPath"/
 	
 	rm -rf "$minifiedFolderPath"
 }

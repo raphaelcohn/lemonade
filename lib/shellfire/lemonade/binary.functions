@@ -15,11 +15,15 @@ lemonade_binary_addStandaloneBinaryPackageToPath()
 	done
 }
 
+core_dependency_requires '*' mkdir
 core_dependency_requires '*' npm
 core_dependency_requires '*' ln
 lemonade_binary_installAndAddNpmBinariesToThePath()
 {
-	pushd "$_program_binPath"
+	local npmPath="$_lemonade_cacheFolderPath"/npm
+	mkdir -m 0700 -p "$npmPath"
+		
+	pushd "$npmPath"
 	
 		local package="$1"
 		for package in "$@"
@@ -29,5 +33,5 @@ lemonade_binary_installAndAddNpmBinariesToThePath()
 		
 	popd
 	
-	export PATH="$_program_binPath"/node_modules/.bin:"$PATH"
+	export PATH="$npmPath"/node_modules/.bin:"$PATH"
 }

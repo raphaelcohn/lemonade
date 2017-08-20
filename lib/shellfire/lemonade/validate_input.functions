@@ -1,0 +1,149 @@
+# This file is part of lemonade. It is subject to the licence terms in the COPYRIGHT file found in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT. No part of lemonade, including this file, may be copied, modified, propagated, or distributed except according to the terms contained in the COPYRIGHT file.
+# Copyright © 2014-2015 The developers of lemonade. See the COPYRIGHT file in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT.
+
+
+lemonade_validate_input()
+{
+	_lemonade_validate_input_us
+	_lemonade_validate_input_caddy
+	_lemonade_validate_input_favicon
+	_lemonade_validate_input_hugo
+	_lemonade_validate_input_sass
+}
+
+_lemonade_validate_input_us()
+{
+	local fileName
+	for fileName in configuration.sh
+	do
+		core_validate_filePathReadable $core_commandLine_exitCode_CONFIG 'lemonade configuration setting' 'lemonade_inputPath' "$lemonade_inputPath"/"$fileName"
+	done
+}
+
+_lemonade_validate_input_caddy()
+{
+	local folderName
+	for folderName in caddy caddy/errors caddy/markdown-templates caddy/root caddy/environments caddy/environments/production caddy/environments/production/caddyfiles
+	do
+		core_validate_folderPathReadableAndSearchable $core_commandLine_exitCode_CONFIG 'caddy configuration setting' 'lemonade_inputPath' "$lemonade_inputPath"/"$folderName"
+	done
+	
+	local fileName
+	for fileName in \
+		caddy.configuration.sh \
+		Caddyfile \
+		environments/production/public.caddy.configuration.sh \
+		environments/production/caddyfiles/public.Caddyfile \
+		markdown-templates/default.markdown-template.html
+	do
+		core_validate_filePathReadable $core_commandLine_exitCode_CONFIG 'caddy configuration setting' 'lemonade_inputPath' "$lemonade_inputPath"/caddy/"$fileName"
+	done
+}
+
+core_dependency_requires '*' head
+core_dependency_requires '*' file
+core_dependency_requires '*' tr
+_lemonade_validate_input_favicon()
+{
+	local folderName
+	for folderName in favicon
+	do
+		core_validate_folderPathReadableAndSearchable $core_commandLine_exitCode_CONFIG 'favicon configuration setting' 'lemonade_inputPath' "$lemonade_inputPath"/"$folderName"
+	done
+	
+	local fileName
+	for fileName in master-picture.png RealFaviconGenerator.api-key RealFaviconGenerator.request.template.json
+	do
+		core_validate_filePathReadable $core_commandLine_exitCode_CONFIG 'favicon configuration setting' 'lemonade_inputPath' "$lemonade_inputPath"/favicon/"$fileName"
+	done
+	
+	local apiKeyFilePath="$lemonade_inputPath"/favicon/RealFaviconGenerator.api-key
+	local apiKey="$(head -n 1 "$apiKeyFilePath")"
+	if [ ${#apiKey} -ne 40 ]; then
+		core_exitError $core_commandLine_exitCode_CONFIG "The API key for favicon generation in the file '$apiKeyFilePath' is not 40 bytes long"
+	fi
+	
+	local masterPictureFilePath="$lemonade_inputPath"/favicon/master-picture.png
+	local typeText
+	local size
+	local more
+	while IFS=',' read -r typeText size more
+	do
+		if [ "$typeText" != 'PNGimagedata' ]; then
+			core_exitError $core_commandLine_exitCode_CONFIG "The image for favicon generation in the file '$masterPictureFilePath' is not a PNG"
+		fi
+		if [ "$size" != '512x512' ]; then
+			core_exitError $core_commandLine_exitCode_CONFIG "The image for favicon generation in the file '$masterPictureFilePath' is not 512 pixels wide by 512 pixels high (512 x 512)"
+		fi
+	done <<-EOF
+		$(file --dereference --brief "$masterPictureFilePath" | tr -d ' ')
+	EOF
+}
+
+_lemonade_validate_input_hugo()
+{
+	local folderName
+	for folderName in hugo hugo/archetypes hugo/content hugo/data hugo/layouts hugo/layouts/partials hugo/static hugo/themes
+	do
+		core_validate_folderPathReadableAndSearchable $core_commandLine_exitCode_CONFIG 'hugo configuration setting' 'lemonade_inputPath' "$lemonade_inputPath"/"$folderName"
+	done
+	
+	local fileName
+	for fileName in archetypes/default.md layouts/robots.txt config.toml
+	do
+		core_validate_filePathReadable $core_commandLine_exitCode_CONFIG 'hugo configuration setting' 'lemonade_inputPath' "$lemonade_inputPath"/hugo/"$fileName"
+	done
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' rm
+_lemonade_validate_input_sass()
+{
+	local folderName
+	for folderName in sass sass/root sass/imports sass/plugins
+	do
+		core_validate_folderPathReadableAndSearchable $core_commandLine_exitCode_CONFIG 'sass configuration setting' 'lemonade_inputPath' "$lemonade_inputPath"/"$folderName"
+	done
+	
+	local importFolder
+	set +f
+	for importFolder in "$lemonade_inputPath"/sass/imports/*
+	do
+		set -f
+		
+		if [ ! -e "$importFolder" ]; then
+			continue
+		fi
+
+		core_validate_folderPathReadableAndSearchable $core_commandLine_exitCode_CONFIG 'sass configuration setting' 'lemonade_inputPath' "$importFolder"
+	done
+	set -f
+	
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local sassFilesFilePath="$TMP_FILE"
+	local sassFilePath
+	find "$lemonade_inputPath"/sass/root -type f >"$sassFilesFilePath"
+	while IFS= read -r sassFilePath
+	do
+		local fileName="${sassFilePath##*/}"
+		case "$fileName" in
+			
+			.gitignore)
+				:
+			;;
+			
+			*.css.sass|*.css.scss)
+				core_validate_filePathReadable $core_commandLine_exitCode_CONFIG 'hugo configuration setting' 'lemonade_inputPath' "$sassFilePath"
+			;;
+			
+			*)
+				core_exitError $core_commandLine_exitCode_CONFIG "The SASS file '$sassFilePath' ends in neither '.css.sass' or '.css.scss'"
+			;;
+			
+		esac
+			
+	done <"$sassFilesFilePath"
+	
+	rm -rf "$sassFilesFilePath"
+}
