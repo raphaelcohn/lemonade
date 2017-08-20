@@ -38,6 +38,39 @@ _lemonade_validate_output_noBrokenSymlinks()
 	fi
 }
 
+core_dependency_requires '*' find
+_lemonade_validate_output_noAbsoluteSymlinks()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$_lemonade_temporaryFolderPath"/absolute-symbolic-links.txt
+	
+	# See https://unix.stackexchange.com/questions/308896/find-all-absolute-links-in-a-directory-tree as to why '///*' is required (to work on Cygwin)
+	find "$_lemonade_siteOutputFolderPath" -lname '/*' ! -lname '//*' -o -lname '///*' >"$filesPath"
+	
+	# test -s doesn't work reliably on Mac OS X
+	if [ "$(wc -c "$filesPath" | awk '{print $1}')" != '0' ]; then
+		core_exitError $core_commandLine_exitCode_FAILURE "There are absolute symbolic links in '$_lemonade_siteOutputFolderPath', check '$filesPath'"
+	fi
+}
+
+core_dependency_requires '*' find
+core_dependency_requires '*' realpath
+_lemonade_validate_output_symlinksAreWithinStructure()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$_lemonade_temporaryFolderPath"/broken-symbolic-links.txt
+	
+	# See https://unix.stackexchange.com/questions/308896/find-all-absolute-links-in-a-directory-tree as to why '///*' is required (to work on Cygwin)
+	find "$_lemonade_siteOutputFolderPath" -type l -exec realpath --relative-to="$_lemonade_siteOutputFolderPath" {} \; | grep '^\.\.' >"$filesPath"
+	
+	# test -s doesn't work reliably on Mac OS X
+	if [ "$(wc -c "$filesPath" | awk '{print $1}')" != '0' ]; then
+		core_exitError $core_commandLine_exitCode_FAILURE "There are symbolic links which point ourside of '$_lemonade_siteOutputFolderPath', check '$filesPath'"
+	fi
+}
+
 core_dependency_requires '*' file
 _lemonade_validate_output_errors()
 {
@@ -167,8 +200,8 @@ _lemonade_validate_output_mimeTypeMatchesFileExtension()
 	local filePath
 	while IFS= read -r filePath
 	do
-		local actualMimeType="$(file --dereference --mime-encoding --brief "$filePath")"
-		
+		local actualMimeType="$(file --dereference --mime-type --brief "$filePath")"
+				
 		if [ "$actualMimeType" = "$mimeType" ]; then
 			:
 		elif [ "$actualMimeType" = 'inode/x-empty' ]; then
@@ -193,7 +226,7 @@ _lemonade_validate_output_isTextual()
 	local filePath
 	while IFS= read -r filePath
 	do
-		local actualMimeType="$(file --dereference --mime-encoding --brief "$path")"
+		local actualMimeType="$(file --dereference --mime-encoding --brief "$filePath")"
 		
 		case "$actualMimeType" in
 			
@@ -391,6 +424,10 @@ lemonade_validate_output()
 	_lemonade_validate_output_onlyFilesAndFolders
 	
 	_lemonade_validate_output_noBrokenSymlinks
+	
+	_lemonade_validate_output_noAbsoluteSymlinks
+	
+	_lemonade_validate_output_symlinksAreWithinStructure
 	
 	_lemonade_validate_output_errors
 	

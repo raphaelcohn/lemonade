@@ -25,6 +25,8 @@ Creating websites should be as easy as making lemonade - gather your ingredients
 
 * Validating that only files and folders are present (ie not block or char devices, etc)
 * Broken symbolic links
+* Absolute symbolic links
+* Symbolic links which resolve outside of the site
 * Anything other than valid HTML files for errors
 * All HTML, XML, SVG, CSS, JavaScript, JSON, CSV, TSV and text files are encoded in UTF-8 (or its subset, US-ASCII)
 * All PNG, JPEG, GIF, SVG, ICO, HTML, XML, WOFF, TFF and text files have a MIME type that matches their file extension\*
