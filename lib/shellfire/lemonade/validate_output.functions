@@ -120,6 +120,23 @@ _lemonade_validate_output_nonUtf8Files()
 }
 
 core_dependency_requires '*' find
+_lemonade_validate_output_onlyFaviconIsIco()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	
+	find "$_lemonade_siteOutputFolderPath"/root -type f -name '*.ico' >"$filesPath"
+	local filePath
+	while IFS= read -r filePath
+	do
+		if [ "$filePath" != "$_lemonade_siteOutputFolderPath"/root/favicon.ico ]; then
+			core_message WARN "There is a ico file which isn't favicon.ico (at '$filePath')."
+		fi
+	done <"$filesPath"
+}
+
+core_dependency_requires '*' find
 _lemonade_validate_output_warnUnusualFileExtensions()
 {
 	local fileExtension="$1"
@@ -414,11 +431,14 @@ lemonade_validate_output()
 	# woff2 (not recognised)
 	# eot (not recognised)
 	
+	_lemonade_validate_output_onlyFaviconIsIco
+	
 	_lemonade_validate_output_warnUnusualFileExtensions htm "Files ending .htm are likely to be mistakes; rename them to .html"
 	_lemonade_validate_output_warnUnusualFileExtensions jpeg "Files ending .jpeg are likely to be mistakes; rename them to .jpg"
 	_lemonade_validate_output_warnUnusualFileExtensions sass "Files ending .sass are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions scss "Files ending .scss are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions less "Files ending .less are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions less "Files ending .eot are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions xhtml "XHTML files are obsolete"
 	_lemonade_validate_output_warnUnusualFileExtensions bmp "BMP files are obsolete"
 	_lemonade_validate_output_warnUnusualFileExtensions pcx "PCX files are obsolete"

@@ -36,10 +36,11 @@ Creating websites should be as easy as making lemonade - gather your ingredients
 ### Build Warnings
 
 * Checks for `.htm` and `.jpeg` files, which are likely to be mistakes (`lemonade` treats `.html` and `.jpg` as the canonical file extensions)
-* Checks for build artifacts from SASS, LESS and PhotoShop
+* Checks for build artifacts from SASS, LESS, Photoshop, Flash, etc
 * Checks for obsolete Flash files
 * Checks for obsolete or rarely supported image formats
 * Checks for binary libraries for Windows or Unix
+* Checks that the *only* ICO file is `favicon.ico`; ICO files are obsolete otherwise
 * Checks for resources which shouldn't exist in a modern site (`.cgi`, `.php`, `.asp`, `.jsp` and `.aspx`)
 * Checks for URLs which are not simple, ie composed of a-z, 0-9, hyphen and, for files, period
 * Checks for HTML meta-tag descriptions
@@ -613,14 +614,22 @@ The included hugo standalone binary is used to generate a website; output goes i
 
 #### Maximal Compression of Output
 
-All output that is textual, and ICO (icon) files, are maximally compressed:-
+All output that is textual, and some binary files, are maximally compressed:-
 
 * To gzip (`.gz`) using `pigz -11` (ie better that `gzip -9`)
 * To brotli (`.br`)
 
 The original files are retained.
 
+The binary files that are compressed are:-
+
+* ico
+* eot
+* ttf
+
 Compression has been further enchanced by setting the `html-minifier` settings `sortAttributes` to true and `sortClassName` to true which increases the likelihood of redundant, compressible patterns in HTML.
+
+WOFF files are not compressed, although there is a very slightly gain using pigz. This is because the original WOFF format does not include the newer gzip / zopfli `-11` compression mode.
 
 
 ## License

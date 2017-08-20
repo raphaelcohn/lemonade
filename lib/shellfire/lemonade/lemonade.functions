@@ -102,8 +102,10 @@ lemonade_compress()
 	local folderPath
 	for folderPath in "$_lemonade_siteOutputFolderPath"/root "$_lemonade_siteOutputFolderPath"/errors
 	do
+		# woff (not woff2) can be very slightly compressed by pigz
 		local fileExtension
-		for fileExtension in css html js json svg xml txt csv tsv ico
+		for fileExtension in css html js json svg xml txt csv tsv \
+			ico eot ttf
 		do
 			local filePath
 			find "$folderPath" -type f -name '*.'"$fileExtension" | while IFS= read -r filePath
