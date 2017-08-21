@@ -230,8 +230,6 @@ _lemonade_download_caddy_findOperatingSystemAndMachine()
 	esac
 }
 
-# Need to do this for Linux to run on ports < 1024:-
-# 	setcap cap_net_bind_service=+ep "$caddyServerFilePath"
 core_dependency_requires '*' rm
 core_dependency_requires '*' wget
 core_dependency_requires '*' unzip
@@ -256,7 +254,7 @@ lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied()
 		_lemonade_download_caddy_findOperatingSystemAndMachine "$operatingSystem" "$architecture"
 		
 		local caddyExtractFolderPath="$_lemonade_cacheFolderPath"/downloaded-caddy-binary
-		local caddyServerBinaryName=caddy."${caddy_os}"."${caddy_arch}${caddy_arm}"."${caddy_plugins}"
+		local caddyServerBinaryName=caddy."$operatingSystem"."$architecture"."${caddy_plugins}"
 		local caddyServerFilePath="$caddyExtractFolderPath"/"$caddyServerBinaryName"
 		local caddySymlinkName=caddy."$operatingSystem"."$architecture"
 	

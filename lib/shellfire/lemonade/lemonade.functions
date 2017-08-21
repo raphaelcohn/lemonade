@@ -92,8 +92,6 @@ lemonade_all()
 		core_message NOTICE "Creating site.tar.gz"
 		lemonade_bundle
 	fi
-	
-	core_message NOTICE "Finished"
 }
 
 core_dependency_requires '*' mkdir
@@ -174,9 +172,12 @@ core_dependency_requires '*' find
 core_dependency_requires '*' chmod
 lemonade_lockDownFilePermissions()
 {
+	mkdir -m 0700 -p "$lemonade_outputPath"/site/cache
+	
 	find -d "$lemonade_outputPath"/site -type f -exec chmod 0400 {} \;
 	find -d "$lemonade_outputPath"/site -type d -exec chmod 0500 {} \;
 	
 	find -d "$lemonade_outputPath"/site/bin -type f -exec chmod 0500 {} \;
 	chmod 0500 "$lemonade_outputPath"/site/caddy-wrapper
+	chmod 0700 "$lemonade_outputPath"/site/cache
 }

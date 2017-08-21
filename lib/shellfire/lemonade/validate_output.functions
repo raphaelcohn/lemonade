@@ -516,10 +516,17 @@ lemonade_validate_output()
 	_lemonade_validate_output_warnUnusualFileExtensions tga "TARGA files are obsolete"
 	_lemonade_validate_output_warnUnusualFileExtensions tif "TIFF files are obsolete"
 	_lemonade_validate_output_warnUnusualFileExtensions tiff "TIFF files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions pbm 'PBM (Portable Bitmap) files are obsolete'
+	_lemonade_validate_output_warnUnusualFileExtensions pgm 'PGM (Portable Bitmap) files are obsolete'
+	_lemonade_validate_output_warnUnusualFileExtensions pnm 'PNM (Portable Bitmap) files are obsolete'
+	_lemonade_validate_output_warnUnusualFileExtensions ppm 'PPM (Portable Bitmap) files are obsolete'
+	_lemonade_validate_output_warnUnusualFileExtensions pam 'PAM (Portable Bitmap) files are obsolete'
 	_lemonade_validate_output_warnUnusualFileExtensions swf "Adobe Flash files are obsolete"
 	_lemonade_validate_output_warnUnusualFileExtensions swt "Adobe Flash files are obsolete"
 	_lemonade_validate_output_warnUnusualFileExtensions swc "Adobe Flash files are obsolete"
 	_lemonade_validate_output_warnUnusualFileExtensions flv "Adobe Flash files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions mng "MNG files are obsolete"
+	_lemonade_validate_output_warnUnusualFileExtensions apng "APNG files are not yet supported by IE Edge"
 	_lemonade_validate_output_warnUnusualFileExtensions raw "RAW image files are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions fla "Adobe Flash related files are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions psd "Adobe Photoshop related files are usually build artefacts"
@@ -530,6 +537,7 @@ lemonade_validate_output()
 	_lemonade_validate_output_warnUnusualFileExtensions crw "Adobe Photoshop related files are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions arw "Adobe Photoshop related files are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions abr "Adobe Photoshop related files are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions gpl "GIMP related files are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions dll "Windows libraries should not normally be served"
 	_lemonade_validate_output_warnUnusualFileExtensions obj "Windows libraries should not normally be served"
 	_lemonade_validate_output_warnUnusualFileExtensions lib "Unix libraries should not normally be served"
@@ -539,6 +547,8 @@ lemonade_validate_output()
 	_lemonade_validate_output_warnUnusualFileExtensions aspx "Legacy website technologies are security problems waiting to happen"
 	_lemonade_validate_output_warnUnusualFileExtensions cgi "Legacy website technologies are security problems waiting to happen"
 	_lemonade_validate_output_warnUnusualFileExtensions htc "Legacy website technologies are security problems waiting to happen"
+	
+	# WebM, WebP - not widely supported
 	
 	_lemonade_validate_output_urlsAreSimple
 	

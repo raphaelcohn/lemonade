@@ -2,12 +2,23 @@
 # Copyright © 2014-2015 The developers of lemonade. See the COPYRIGHT file in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT.
 
 
+core_dependency_requires '*' mkdir
 core_dependency_requires '*' tar
+core_dependency_requires '*' cp
 lemonade_bundle()
 {
+	mkdir -m 0700 -p "$lemonade_outputPath"/deployment
+	
 	pushd "$lemonade_outputPath"
-		
-		tar -z -c -f site.tar.gz site
+	
+		tar -z -c -f deployment/site.tar.gz site
 		
 	popd
+	
+	cp "$_program_etcPath"/deployment.Dockerfile "$lemonade_outputPath"/deployment/Dockerfile
+	cp "$_program_etcPath"/deployment.dockerignore "$lemonade_outputPath"/deployment/.dockerignore
+	
+	
+	core_message NOTICE "Your site is ready to deploy on Docker"
+	core_message NOTICE "Build with   docker build --build-arg ENVIRONMENT=production '$lemonade_outputPath/deployment'"
 }
