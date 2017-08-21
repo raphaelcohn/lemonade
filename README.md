@@ -622,6 +622,11 @@ All SVG images must have the file extension `.svg`.
 Any SVG image that ends up in the site root or its subfolders (`<OUTPUT>/site/root` and below) will be crushed. SVG crushing has no configurable options and is not lossy.
 
 
+#### Custom HTTP headers
+
+To add custom HTTP headers that will be embedded into a Caddyfile `output/site/headers.Caddyfile` `headers /relative/uri {}` section, simply add a `FILE.headers` next to any `FILE`. For `index.html`, `index.md` or `index.tpl` files, simply add `index.html.headers` or the like.
+
+
 ### Build Steps
 
 
