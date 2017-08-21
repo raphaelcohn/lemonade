@@ -17,8 +17,7 @@ _lemonade_validate_output_onlyFilesAndFolders()
 		find "$_lemonade_siteOutputFolderPath" -type "$typeCode" >"$filesPath"
 	done
 	
-	# test -s doesn't work reliably on Mac OS X
-	if [ "$(wc -c "$filesPath" | awk '{print $1}')" != '0' ]; then
+	if [ -s "$filesPath" ]; then
 		core_exitError $core_commandLine_exitCode_FAILURE "There are items which aren't files or folders in '$_lemonade_siteOutputFolderPath', check '$filesPath'"
 	fi
 }
@@ -32,8 +31,7 @@ _lemonade_validate_output_noBrokenSymlinks()
 	
 	find "$_lemonade_siteOutputFolderPath" -type l ! -exec test -e {} \; -print >"$filesPath"
 	
-	# test -s doesn't work reliably on Mac OS X
-	if [ "$(wc -c "$filesPath" | awk '{print $1}')" != '0' ]; then
+	if [ -s "$filesPath" ]; then
 		core_exitError $core_commandLine_exitCode_FAILURE "There are broken symbolic links in '$_lemonade_siteOutputFolderPath', check '$filesPath'"
 	fi
 }
@@ -48,26 +46,26 @@ _lemonade_validate_output_noAbsoluteSymlinks()
 	# See https://unix.stackexchange.com/questions/308896/find-all-absolute-links-in-a-directory-tree as to why '///*' is required (to work on Cygwin)
 	find "$_lemonade_siteOutputFolderPath" -lname '/*' ! -lname '//*' -o -lname '///*' >"$filesPath"
 	
-	# test -s doesn't work reliably on Mac OS X
-	if [ "$(wc -c "$filesPath" | awk '{print $1}')" != '0' ]; then
+	if [ -s "$filesPath" ]; then
 		core_exitError $core_commandLine_exitCode_FAILURE "There are absolute symbolic links in '$_lemonade_siteOutputFolderPath', check '$filesPath'"
 	fi
 }
 
 core_dependency_requires '*' find
 core_dependency_requires '*' realpath
+core_dependency_requires '*' grep
 _lemonade_validate_output_symlinksAreWithinStructure()
 {
 	local TMP_FILE
 	core_temporaryFiles_newFileToRemoveOnExit
-	local filesPath="$_lemonade_temporaryFolderPath"/broken-symbolic-links.txt
+	local filesPath="$_lemonade_temporaryFolderPath"/symbolic-links-which-point-outside-root.txt
+
+	set +e
+	let badCount="$(find "$_lemonade_siteOutputFolderPath" -type l -exec realpath --relative-to="$_lemonade_siteOutputFolderPath" {} \; | grep -c '^\.\.')"
+	set -e
 	
-	# See https://unix.stackexchange.com/questions/308896/find-all-absolute-links-in-a-directory-tree as to why '///*' is required (to work on Cygwin)
-	find "$_lemonade_siteOutputFolderPath" -type l -exec realpath --relative-to="$_lemonade_siteOutputFolderPath" {} \; | grep '^\.\.' >"$filesPath"
-	
-	# test -s doesn't work reliably on Mac OS X
-	if [ "$(wc -c "$filesPath" | awk '{print $1}')" != '0' ]; then
-		core_exitError $core_commandLine_exitCode_FAILURE "There are symbolic links which point ourside of '$_lemonade_siteOutputFolderPath', check '$filesPath'"
+	if [ $badCount -ne 0 ]; then
+		core_exitError $core_commandLine_exitCode_FAILURE "There are $badCount symbolic link(s) which point outside of '$_lemonade_siteOutputFolderPath'"
 	fi
 }
 
@@ -226,7 +224,7 @@ _lemonade_validate_output_isTextual()
 	local filePath
 	while IFS= read -r filePath
 	do
-		local actualMimeType="$(file --dereference --mime-encoding --brief "$filePath")"
+		local actualMimeType="$(file --dereference --mime-type --brief "$filePath")"
 		
 		case "$actualMimeType" in
 			
@@ -248,6 +246,40 @@ _lemonade_validate_output_isTextual()
 }
 
 core_dependency_requires '*' find
+core_dependency_requires '*' file
+_lemonade_validate_output_isBinary()
+{
+	local fileExtension="$1"
+	
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	find "$_lemonade_siteOutputFolderPath"/root -type f -name '*.'"${fileExtension}" >"$filesPath"
+	local filePath
+	while IFS= read -r filePath
+	do
+		local actualMimeType="$(file --dereference --mime-type --brief "$filePath")"
+		
+		case "$actualMimeType" in
+			
+			inode/x-empty)
+				:
+			;;
+			
+			application/octet-stream)
+				:
+			;;
+			
+			*)
+				core_exitError $core_commandLine_exitCode_FAILURE "All '$fileExtension' files should be binary; '$filePath' has MIME type '$actualMimeType' instead"
+			;;
+			
+		esac
+		
+	done <"$filesPath"
+}
+
+core_dependency_requires '*' find
 _lemonade_validate_output_isNotEmpty()
 {
 	local fileExtension="$1"
@@ -259,8 +291,7 @@ _lemonade_validate_output_isNotEmpty()
 	local filePath
 	while IFS= read -r filePath
 	do
-		# test -s doesn't work reliably on Mac OS X
-		if [ "$(wc -c "$filesPath" | awk '{print $1}')" != '0' ]; then
+		if [ ! -s "$filesPath" ]; then
 			core_exitError $core_commandLine_exitCode_FAILURE "All '$fileExtension' files MUST NOT be empty; '$filePath' is"
 		fi
 	done <"$filesPath"
@@ -281,15 +312,17 @@ _lemonade_validate_output_urlsAreSimple()
 		while IFS= read -r filePath
 		do
 			if [ -d "$filePath" ]; then
-				local characters='abcdefghijklmnopqrstuvwxyz0123456789-'
+				local characters='-/0123456789abcdefghijklmnopqrstuvwxyz'
 			else
-				local characters='abcdefghijklmnopqrstuvwxyz0123456789-.'
+				local characters='-./0123456789abcdefghijklmnopqrstuvwxyz'
 			fi
 			
-			local stripped="$(printf '%s\n' "$filePath" | tr -C -d "$characters")"
+			local withoutLeadingPeriod="$(core_variable_allButFirst "$filePath")"
 			
-			if [ "${#stripped}" != "${#filePath}" ]; then
-				core_message WARN "URL is not optimal (at '$filePath'); URLs should be a-z, 0-9, hyphen, and, if a file, period"
+			local stripped="$(printf '%s' "$withoutLeadingPeriod" | tr -C -d -- "$characters")"
+			
+			if [ "${#stripped}" != "${#withoutLeadingPeriod}" ]; then
+				core_message WARN "URL is not optimal (at '$filePath'); URLs should be a-z, 0-9, hyphen, slash, and, if a file, period"
 			fi
 					
 		done <"$filesPath"
@@ -318,37 +351,41 @@ _lemonade_validate_output_htmlDescriptionsAreSimple()
 		do
 			local description="$(hxnormalize -x -e "$filePath" | hxselect -l en -i 'html > head > meta[name=description]' | head -n 1 | hxpipe | awk '$1 ~ /^Acontent/ {print $3}')"
 			
+			local isEmpty=false
 			if [ ${#description} -eq 0 ]; then
 				core_message WARN "HTML missing useful meta-tag for description at '$filePath'"
+				isEmpty=true
 			elif [ ${#description} -gt 160 ]; then
 				core_message WARN "HTML has overlong meta-tag (160+ characters) for description at '$filePath'"
 			fi
 
-			local stripped="$(printf '%s\n' "$description" | tr -C -d 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.!?$£@&- ')"
+			local stripped="$(printf '%s\n' "$description" | tr -C -d -- '! &,-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ?@abcdefghijklmnopqrstuvwxyz')"
 		
 			if [ ${#stripped} -ne ${#description} ]; then
-				core_message WARN "HTML has inappropriate characters in meta-tag for description at '$filePath'; only A-Z, a-z, 0-9, currencies and a little punctuation is allowed"
+				core_message WARN "HTML has inappropriate characters in meta-tag for description at '$filePath'; only A-Z, a-z, 0-9, space and a little punctuation is allowed"
 			fi
-			
-			case "$description" in
+
+			if ! $isEmpty; then
+				case "$description" in
 				
-				*'.')
-					:
-				;;
+					*'.')
+						:
+					;;
 				
-				*'?')
-					:
-				;;
+					*'?')
+						:
+					;;
 				
-				*'!')
-					:
-				;;
+					*'!')
+						:
+					;;
 				
-				*)
-					core_message WARN "HTML meta-tag for description at '$filePath' does not end in '.', '?' or '!'"
-				;;
+					*)
+						core_message WARN "HTML meta-tag for description at '$filePath' does not end in '.', '?' or '!'"
+					;;
 				
-			esac
+				esac
+			fi
 			
 		done <"$filesPath"
 		
@@ -372,47 +409,43 @@ _lemonade_validate_output_htmlTitlesAreSimple()
 		local filePath
 		while IFS= read -r filePath
 		do
-			# if [ -d "$filePath" ]; then
-			# 	local characters='abcdefghijklmnopqrstuvwxyz0123456789-'
-			# else
-			# 	local characters='abcdefghijklmnopqrstuvwxyz0123456789-.'
-			# fi
-			
-			# <meta name="description" content="{{ .Description }}">
-			
 			local title="$(hxnormalize -x -e "$filePath" | hxselect -l en -i -c 'html > head > title' | head -n 1)"
 			
+			local isEmpty=false
 			if [ ${#title} -eq 0 ]; then
 				core_message WARN "HTML missing title at '$filePath'"
+				isEmpty=true
 			elif [ ${#title} -gt 60 ]; then
 				core_message WARN "HTML has overlong title (60+ characters) for description at '$filePath'"
 			fi
-
-			local stripped="$(printf '%s\n' "$title" | tr -C -d 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:| ')"
+			
+			local stripped="$(printf '%s\n' "$title" | tr -C -d -- ' 0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz|')"
 		
 			if [ ${#stripped} -ne ${#title} ]; then
 				core_message WARN "HTML has inappropriate characters in title at '$filePath'; only A-Z, a-z, 0-9, and a little punctuation is allowed"
 			fi
-			
-			case "$description" in
+
+			if ! $isEmpty; then
+				case "$title" in
 				
-				*' ')
-					core_message WARN "HTML title at '$filePath' ends in ' '"
-				;;
+					*' ')
+						core_message WARN "HTML title at '$filePath' ends in ' '"
+					;;
 				
-				*'|')
-					core_message WARN "HTML title at '$filePath' ends in '|'"
-				;;
+					*'|')
+						core_message WARN "HTML title at '$filePath' ends in '|'"
+					;;
 				
-				*':')
-					core_message WARN "HTML title at '$filePath' ends in ':'"
-				;;
+					*':')
+						core_message WARN "HTML title at '$filePath' ends in ':'"
+					;;
 				
-				*)
-					:
-				;;
+					*)
+						:
+					;;
 				
-			esac
+				esac
+			fi
 			
 		done <"$filesPath"
 		
@@ -426,7 +459,7 @@ lemonade_validate_output()
 	_lemonade_validate_output_noBrokenSymlinks
 	
 	_lemonade_validate_output_noAbsoluteSymlinks
-	
+
 	_lemonade_validate_output_symlinksAreWithinStructure
 	
 	_lemonade_validate_output_errors
@@ -441,32 +474,33 @@ lemonade_validate_output()
 	_lemonade_validate_output_nonUtf8Files csv
 	_lemonade_validate_output_nonUtf8Files txt
 	
+	# NOTE: These mime types are those reported by the `file` program - they may not match the ones used by IANA (eg image/svg should be image/svg+xml)
 	_lemonade_validate_output_mimeTypeMatchesFileExtension png image/png
 	_lemonade_validate_output_mimeTypeMatchesFileExtension jpg image/jpeg
 	_lemonade_validate_output_mimeTypeMatchesFileExtension gif image/gif
 	_lemonade_validate_output_mimeTypeMatchesFileExtension ico image/x-icon
-	_lemonade_validate_output_mimeTypeMatchesFileExtension svg image/svg+xml
+	_lemonade_validate_output_mimeTypeMatchesFileExtension svg image/svg
 	_lemonade_validate_output_mimeTypeMatchesFileExtension html text/html
 	_lemonade_validate_output_mimeTypeMatchesFileExtension xml text/xml
 	_lemonade_validate_output_mimeTypeMatchesFileExtension txt text/plain
 	_lemonade_validate_output_mimeTypeMatchesFileExtension woff application/font-woff
 	_lemonade_validate_output_mimeTypeMatchesFileExtension ttf application/x-font-ttf
 	
-	# The file command can't actually check these MIME types
+	# The `file` program can't actually check these MIME types
 	_lemonade_validate_output_isTextual css
 	_lemonade_validate_output_isTextual csv
 	_lemonade_validate_output_isTextual tsv
 	_lemonade_validate_output_isTextual js
 	_lemonade_validate_output_isTextual json
+	_lemonade_validate_output_isBinary woff2
+	_lemonade_validate_output_isBinary eot
 	
 	_lemonade_validate_output_isNotEmpty html
 	_lemonade_validate_output_isNotEmpty xml
 	_lemonade_validate_output_isNotEmpty svg
 	_lemonade_validate_output_isNotEmpty json
-	
-	# Web fonts (as well as SVG)
-	# woff2 (not recognised)
-	# eot (not recognised)
+	_lemonade_validate_output_isNotEmpty woff2
+	_lemonade_validate_output_isNotEmpty eot
 	
 	_lemonade_validate_output_onlyFaviconIsIco
 	

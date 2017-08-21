@@ -9,6 +9,7 @@ lemonade_validate_input()
 	_lemonade_validate_input_favicon
 	_lemonade_validate_input_hugo
 	_lemonade_validate_input_sass
+	_lemonade_validate_input_spelling
 }
 
 _lemonade_validate_input_us()
@@ -146,4 +147,28 @@ _lemonade_validate_input_sass()
 	done <"$sassFilesFilePath"
 	
 	rm -rf "$sassFilesFilePath"
+}
+
+_lemonade_validate_input_spelling()
+{
+	local folderName
+	for folderName in spelling
+	do
+		core_validate_folderPathReadableAndSearchable $core_commandLine_exitCode_CONFIG 'spelling configuration setting' 'lemonade_inputPath' "$lemonade_inputPath"/"$folderName"
+	done
+	
+	set +f
+	local wordlistFilePath
+	for wordlistFilePath in spelling/*.wordlist
+	do
+		set +f
+		
+		if [ ! -e "$wordlistFilePath" ]; then
+			continue
+		fi
+		
+		core_validate_filePathReadable $core_commandLine_exitCode_CONFIG 'spelling configuration setting' 'lemonade_inputPath' "$wordlistFilePath"
+		
+	done
+	set -f
 }

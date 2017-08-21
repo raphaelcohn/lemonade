@@ -5,7 +5,7 @@
 # Alpine Linux lacks brotli, pngquant (edge/community) and jpegoptim (edge/community)
 
 
-core_usesIn lemonade binary caddy configuration css download_caddy favicon image_crush minify paths validate_input validate_output
+core_usesIn lemonade binary caddy configuration css download_caddy favicon image_crush minify paths spellcheck validate_input validate_output
 
 lemonade_all()
 {
@@ -13,46 +13,80 @@ lemonade_all()
 	
 	lemonade_paths_makeInputPathAbsolute
 	
+	core_message NOTICE "Creating output folder structure"
 	lemonade_paths_createOutputFolder
 	
-	lemonade_validate_input
+	lemonade_binary_addStandaloneBinaryPackageToPath jq hugo minify svgcleaner
 	
-	lemonade_binary_addStandaloneBinaryPackageToPath jq hugo minify
+	core_message NOTICE "Adding npm binaries to the PATH"
 	lemonade_binary_installAndAddNpmBinariesToThePath autoprefixer-cli@1.0.0 html-minifier@3.5.3
-			
-	lemonade_caddy_copyOutline
 	
+	if core_variable_isTrue "$lemonade_development"; then
+		core_message WARN "Skipping input validation checks"
+	else
+		lemonade_validate_input
+	fi
+	
+	core_message NOTICE "Copying caddy outline"
+	lemonade_caddy_copyOutline
+
+	core_message NOTICE "Configuring"
 	lemonade_configuration
 	lemonade_css_compileSassToCssAndAutoprefix "$lemonade_inputPath"/sass/root "$_lemonade_rootOutputPath"
-	
+
+	core_message NOTICE "Ensuring caddy is downloaded"
 	lemonade_download_caddy_ensureCaddyIsDownloadedCachedAndCopied
-	
-	# Javascript processing
-	#  concatenation  - ordering and layout is problematic
-	#  www.jsweet.org - Java to TypeScript to JavaScript; much higher bar, better refactoring, etc
-	
+
+	core_message NOTICE "Generating Favicon"
 	lemonade_favicon_getRealFavicon
-	
+
+	core_message NOTICE "Running Hugo"
 	lemonade_runHugo
-		
-	lemonade_image_crush_png
-	lemonade_image_crush_jpeg
-	lemonade_image_crush_gif
 	
-	# Suspended as does not play nicely with amp
-	#lemonade_tidy_html
-	lemonade_minify_html
-	lemonade_minify
+	if core_variable_isTrue "$lemonade_development"; then
+		core_message WARN "Skipping image crush"
+	else
+		core_message NOTICE "Crushing images"
+		lemonade_image_crush
+	fi
+	
+	if core_variable_isTrue "$lemonade_development"; then
+		core_message WARN "Skipping minification"
+	else
+		# Suspended as does not play nicely with amp
+		#lemonade_tidy_html
+		core_message NOTICE "Minifying"
+		lemonade_minify_html
+		lemonade_minify
+	fi
 	
 	lemonade_removeSourceControlRelics
 	
-	lemonade_validate_output
+	if core_variable_isTrue "$lemonade_development"; then
+		core_message WARN "Skipping output validation checks"
+	else
+		core_message NOTICE "Validating Output"
+		lemonade_validate_output
+	fi
 	
-	core_message WARN "TODO: Validate that no symlinks point outside of the directory"
+	if core_variable_isTrue "$lemonade_development"; then
+		core_message WARN "Skipping spellchecking"
+	else
+		core_message NOTICE "Validating Spellchecking"
+		lemonade_spellcheck
+	fi
 	
-	lemonade_compress
-	
+	if core_variable_isTrue "$lemonade_development"; then
+		core_message WARN "Skipping compression"
+	else
+		core_message NOTICE "Compressing"
+		lemonade_compress
+	fi
+
+	core_message NOTICE "Locking down file permissions"
 	lemonade_lockDownFilePermissions
+	
+	core_message NOTICE "Finished"
 }
 
 core_dependency_requires '*' mkdir

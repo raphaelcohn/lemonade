@@ -37,6 +37,7 @@ lemonade_paths_createOutputFolder()
 	
 	_lemonade_cacheFolderPath="$lemonade_outputPath"/cache
 	if core_variable_isTrue "$lemonade_cleanCache"; then
+		core_message NOTICE "Cleaning cache"
 		_lemonade_paths_createOutputFolder_clean "$_lemonade_cacheFolderPath"
 	fi
 	mkdir -m 0700 -p "$_lemonade_cacheFolderPath"

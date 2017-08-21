@@ -1,0 +1,97 @@
+# This file is part of lemonade. It is subject to the licence terms in the COPYRIGHT file found in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT. No part of lemonade, including this file, may be copied, modified, propagated, or distributed except according to the terms contained in the COPYRIGHT file.
+# Copyright © 2014-2015 The developers of lemonade. See the COPYRIGHT file in the top-level directory of this distribution and at https://raw.githubusercontent.com/raphaelcohn/lemonade/master/COPYRIGHT.
+
+
+core_dependency_requires '*' hxnormalize
+core_dependency_requires '*' hxpipe
+core_dependency_requires '*' head
+core_dependency_requires '*' awk
+core_dependency_requires '*' mkdir
+core_dependency_requires '*' wc
+core_dependency_requires '*' cat
+core_dependency_requires '*' aspell
+core_dependency_requires '*' sort
+core_dependency_requires '*' rm
+_lemonade_spellcheck_htmlFile()
+{
+	local folderName="$1"
+	local relativeHtmlFilePath="$2"
+	
+	# head -n 10 is to make the input to awk much shorter; the html lang attribute will be in the first few lines
+	local language
+	local dialect
+	while IFS='-' read -r language dialect
+	do	
+		if [ -z "$language" ]; then
+			language='en'
+			dialect='US'
+		fi
+		break
+	done <<-EOF
+		$(hxnormalize -x -e "$relativeHtmlFilePath" | hxpipe | head -n 10 | awk '$1 ~ /^Alang$/ {print $3}' | head -n 1)
+	EOF
+	
+	local aspellCode
+	if [ -z "$dialect" ]; then
+		aspellCode="$language"
+	else
+		aspellCode="${language}"_"${dialect}"
+	fi
+	
+	local spellingMistakesFilePath="$_lemonade_temporaryFolderPath"/spelling-mistakes/"$folderName"/"$relativeHtmlFilePath".spelling-mistakes
+	local spellingMistakesFolderPath="${spellingMistakesFilePath%/*}"
+	mkdir -m 0700 -p "$spellingMistakesFolderPath"
+	
+	set -- --mode=html -d "$aspellCode"
+	
+	local wordlistFilePath="$lemonade_inputPath"/spelling/"$aspellCode".wordlist
+	if [ -s "$wordlistFilePath" ]; then
+		
+		local aspellPersonalDictionaryFilePath="$_lemonade_temporaryFolderPath"/"$aspellCode".pws
+		
+		if [ ! -f "$aspellPersonalDictionaryFilePath" ]; then
+			
+			local numberOfWords="$(wc -l "$wordlistFilePath" | awk '{print $1}')"
+			{
+				printf 'personal_ws-1.1 en %s utf-8\n' "$numberOfWords"
+				cat "$wordlistFilePath"
+			} >"$aspellPersonalDictionaryFilePath"
+			
+		fi
+		set -- "$@" -p "$aspellPersonalDictionaryFilePath"
+	fi
+	
+	aspell "$@" list <"$relativeHtmlFilePath" | sort -u -f >"$spellingMistakesFilePath"
+	
+	if [ -s "$spellingMistakesFilePath" ]; then
+		core_message WARN "HTML has spelling mistakes (recorded in '$spellingMistakesFilePath')"
+	else
+		rm -rf "$spellingMistakesFilePath"
+	fi
+}
+
+core_dependency_requires '*' find
+lemonade_spellcheck()
+{
+	local folderName
+	for folderName in errors root
+	do
+		local TMP_FILE
+		core_temporaryFiles_newFileToRemoveOnExit
+		local filesPath="$TMP_FILE"
+	
+		pushd "$_lemonade_siteOutputFolderPath"/"$folderName"
+			
+			find . -type f -name '*.html' >"$filesPath"
+			local filePath
+			while IFS= read -r filePath
+			do
+				_lemonade_spellcheck_htmlFile "$folderName" "$filePath"
+			done <"$filesPath"
+			
+		popd
+		
+		# Remove any empty folders to make any spelling mistake files easier to find by the user
+		find "$_lemonade_temporaryFolderPath"/spelling-mistakes/"$folderName" -type d -empty -exec rmdir {} \;
+	done
+}

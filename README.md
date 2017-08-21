@@ -2,11 +2,30 @@
 
 Creating websites should be as easy as making lemonade - gather your ingredients, follow a simple process and enjoy!
 
-`lemonade` creates static, minified and compressed websites using Hugo, Caddy and RealFaviconGenerator which can deployed by rsync to any Linux host or container with no additional dependencies (not even an installed webserver). All the inputs to the website can be stored in git. Websites can also run locally on any operating system that Caddy supports.
+`lemonade` creates static, minified and compressed websites using Hugo, Caddy and RealFaviconGenerator which can deployed by rsync to any Linux host or container with no additional dependencies (not even an installed webserver). All the inputs to the website can be stored in git. Websites can also run locally on any operating system that Caddy supports. It checks the output for common problems, including spelling mistakes, missing files, inappropriate files and the like.
 
 `lemonade` understands about environments (eg production) and lets you separate out the small pieces of configuration (and any secrets) that need to differ.
 
 `lemonade`, wherever, possible, will install its own dependencies - but **only** on the build machine - never on a webserver. It works best on Mac OS X with Homebrew.
+
+If you find lemonade's checks a bit slow, you can speed it up for development by doing `lemonade --development`.
+
+
+## Making Small Sites
+
+* All PNG, JPG, GIF and SVG images are cleaned and crushed losslessly
+* Optionally, PNG and JPG images can be lossly crushed on a per-file basis
+* All HTML, CSS, JavaScript, JSON and SVG files are minified
+* All textual resources, along with ICO, EOT and TTF binary files are maximally compressed to brotli and gzip (`zopfli -11`)
+
+
+## Making Robust Sites
+
+* The final output is a completely self-contained folder
+* The only dependencies your deployment machine needs are `sh` and `uname`, ie BusyBox
+* All configuration and command line settings for `caddy` are in source control
+* Configuration can have per-environment overrides
+* Configuration can be split, so that 'secret' data (eg passwords, API keys, etc) does not need to put in source control
 
 
 ## Making Safe Sites
@@ -14,7 +33,7 @@ Creating websites should be as easy as making lemonade - gather your ingredients
 `lemonade` has extensive hardenings, build failures and warnings to check that you don't produce a potentially broken or unsafe site. These include:-
 
 
-### Hardernings
+### Hardenings
 
 * Changing all file permissions to `0400`, read-only by the current user and no one else
 * Changing all folder permissions to `0500`, read and search (list) only to the current user and no one else
@@ -24,26 +43,34 @@ Creating websites should be as easy as making lemonade - gather your ingredients
 ### Build Failures
 
 * Validating that only files and folders are present (ie not block or char devices, etc)
-* Broken symbolic links
-* Absolute symbolic links
-* Symbolic links which resolve outside of the site
-* Anything other than valid HTML files for errors
-* All HTML, XML, SVG, CSS, JavaScript, JSON, CSV, TSV and text files are encoded in UTF-8 (or its subset, US-ASCII)
-* All PNG, JPEG, GIF, SVG, ICO, HTML, XML, WOFF, TFF and text files have a MIME type that matches their file extension\*
-* HTML, XML, SVG and JSON files are not empty
+* There are no broken symbolic links
+* There are no absolute symbolic links
+* There are no symbolic links which resolve outside of the site
+* There are no files other than HTML for errors
+* All HTML, XML, SVG, CSS, JavaScript, JSON, CSV, TSV and TXT files are encoded in UTF-8 (or its subset, US-ASCII)
+* All PNG, JPEG, GIF, SVG, ICO, HTML, XML, WOFF, TFF and TXT files have a MIME type that matches their file extension\*
+* All CSS, CSV, TSV, JavaScript and JSON files are textual†
+* All WOFF2 and EOT files are binary†
+* All HTML, XML, SVG and JSON files are not empty
+* All WOFF2 and EOT files are not empty
 
 \* We can't do this currently for JavaScript, JSON, CSS, CSV, TSV, WOFF2 and EOT because the `file` tool we use can't detect them.
+† This is the best we can do currently because of the `file` tools limitations. At least it mitigates problems with FTP and ASCII / binary mode (but you're not still using FTP, are you)?
 
 
 ### Build Warnings
 
 * Checks for `.htm` and `.jpeg` files, which are likely to be mistakes (`lemonade` treats `.html` and `.jpg` as the canonical file extensions)
-* Checks for build artifacts from SASS, LESS, Photoshop, Flash, etc
+* Checks for build artifacts from SASS, LESS, Photoshop, etc
 * Checks for obsolete Flash files
 * Checks for obsolete or rarely supported image formats
 * Checks for binary libraries for Windows or Unix
 * Checks that the *only* ICO file is `favicon.ico`; ICO files are obsolete otherwise
 * Checks for resources which shouldn't exist in a modern site (`.cgi`, `.php`, `.asp`, `.jsp` and `.aspx`)
+
+
+## Making Good Sites
+
 * Checks for URLs which are not simple, ie composed of a-z, 0-9, hyphen and, for files, period
 * Checks for HTML meta-tag descriptions
 	* which are empty or missing
@@ -55,6 +82,8 @@ Creating websites should be as easy as making lemonade - gather your ingredients
 	* which are over 60 characters
 	* which are not simple
 	* which end in ` `, `|` or `:`
+* Checks spellings in HTML files using `aspell`
+
 
 ## To use
 
@@ -101,6 +130,74 @@ The documentation of this step will be improved following operational experience
 All configuration goes into a folder called `input`.
 
 As a general rule, all configuration files, and anything that can be considered to be textual should be UTF-8 encoded (have a UTF-8 character set). If you check your files using the `file` command, it will report the charset as UTF-8, or, in some cases, `ASCII`.
+
+Additionally, all configuration files use line feeds (LF) to terminate lines, not carriage return (CR) and line feed, even on Windows. You may need to adjust your gitconfig to make this work correctly for you if using Windows.
+
+
+#### Simple Stuff
+
+
+##### `configuration.sh`
+
+This file contains details of caddy plugins to use and which deployment targets (Operating Systems) to download caddy for.
+
+It can also be used to run custom build commands, as it is just shell script. A much easier alternative to gulp, grunt and Node-JS junkery.
+
+An example:-
+
+```bash
+# MUST be listed first
+caddy_plugin dns
+caddy_plugin net
+caddy_plugin http.cache
+caddy_plugin http.cors
+caddy_plugin http.expires
+caddy_plugin http.filter
+caddy_plugin http.minify
+caddy_plugin http.nobots
+caddy_plugin http.proxyprotocol
+caddy_plugin http.ratelimit
+caddy_plugin http.realip
+caddy_plugin http.restic
+caddy_plugin tls.dns.digitalocean
+caddy_plugin tls.dns.vultr
+
+
+# First argument is operating system as would be reported by `uname` (with trailing line feed stripped)
+# Second argument is architecture as would be reported by `uname -m` (with trailing line feed stripped)
+deployment_target Linux x86_64
+
+
+# Custom build command
+# Additional SASS / SCSS processing for AMP (optional)
+lemonade_css_compileSassToCssAndAutoprefix "$lemonade_inputPath"/hugo/layouts/partials "$lemonade_inputPath"/hugo/layouts/partials
+```
+
+#### Spellchecking
+
+Spellchecking currently uses `aspell`. It's possible to supply additional spellings and replacement words for common spelling mistakes by putting files in the `input/spellchecking` folder for each ISO language code you're using in your website, eg:-
+
+```
+	en.wordlist       (Symlink to en_US.wordlist or any other variant)
+	en_US.wordlist
+```
+
+Spellchecking uses the value of the `html lang` attribute which is then converted to the correct ISO form, eg for `en-gb` it becomes `en_GB` and for `en` it stays as `en`. If this is missing, it defaults to `en_US`. If a file is missing for a language then it is ignored.
+
+Inside each `.wordlist` simply list one word per line, eg
+
+```
+tech
+MyAppName
+```
+
+It is a good idea to make sure words in `.wordlist` files are kept in sort order. The following command will sort your file by byte-order:-
+
+```bash
+mv FILE.wordlist FILE.wordlist.orig && LANG=C sort -u -f FILE.wordlist.orig >FILE.wordlist
+```
+
+Spelling mistakes are output to the `output/temporary/spelling-mistakes` folder.
 
 
 #### Favicons & App Manifests
@@ -515,6 +612,13 @@ All GIF images must have the file extension `.gif`.
 Any GIF image that ends up in the site root or its subfolders (`<OUTPUT>/site/root` and below) will be crushed. GIF crushing has no configurable options and is not lossy.
 
 
+#### SVG Images
+
+All SVG images must have the file extension `.svg`.
+
+Any SVG image that ends up in the site root or its subfolders (`<OUTPUT>/site/root` and below) will be crushed. SVG crushing has no configurable options and is not lossy.
+
+
 ### Build Steps
 
 
@@ -585,7 +689,10 @@ The included hugo standalone binary is used to generate a website; output goes i
 * GIF
 	* Lossy crushing is not done\*
 	* All images are crushed losslessly using `gifsicle`
-	
+* SVG
+	* Lossy crushing is not done
+	* All images are crushed losslessly using `svgcleaner`
+
 \* This is due to naming collision between the `gifsicle` binary and the `lossygif` binary; we can not know reliably which one is being used.
 
 
@@ -611,7 +718,7 @@ The included hugo standalone binary is used to generate a website; output goes i
 #### Validation of Output
 
 * Build Failures are generated
-* Build Warnings are generated
+* Build Warnings are generated, including spelling mistakes
 
 
 #### Maximal Compression of Output

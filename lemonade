@@ -24,10 +24,10 @@ _program_path_find()
 
         # We've been invoked by the interpreter as, say, bash program
         if [ -r "$0" ]; then
-                pwd -P
+			pwd -P
         # Clutching at straws; probably run via a download, anonymous script, etc, weird execve, etc
         else
-                printf '\n'
+			printf '\n'
         fi
             
     else
@@ -38,16 +38,16 @@ _program_path_find()
 	    {
             parentPath="${scriptPath%/*}"
             if [ -z "$parentPath" ]; then
-                    parentPath='/'
+                   parentPath='/'
             fi
             cd "$parentPath" 1>/dev/null
 	    }
     
 	    if command -v realpath 1>/dev/null 2>/dev/null; then
         (
-            scriptPath="$(realpath "$0")"
-        
-            _program_path_find_parentPath
+			scriptPath="$(realpath "$0")"
+
+			_program_path_find_parentPath
             pwd -P
         )
 	    elif command -v readlink 1>/dev/null 2>/dev/null; then
@@ -56,8 +56,8 @@ _program_path_find()
         
             while [ -L "$scriptPath" ]
             do
-                    _program_path_find_parentPath
-                    scriptPath="$(readlink "$scriptPath")"
+				_program_path_find_parentPath
+				scriptPath="$(readlink "$scriptPath")"
             done
 
             _program_path_find_parentPath
@@ -86,6 +86,8 @@ _program_varPath="${_program_path}/var"
 _program_binPath="${_program_path}/bin"
 _program_entrypoint='lemonade'
 
+lemonade_verbose='1'
+
 _program_commandLine_parseInitialise()
 {
 	:
@@ -103,15 +105,22 @@ _program_commandLine_helpMessage()
                             Created if it doesn't exist.
                             Defaults to current working directory:-
                             $(pwd)
-  -c, --clean-cache [ON]    Clean cache on start. Defaults to OFF"
+  -c, --clean-cache [ON]    Clean cache on start. Defaults to OFF
+  -d, --development [ON]    Skip validation and build checks and warnings.
+                            Skip HTML, etc minification.
+							Skip image crushing.
+							Skip compression.
+                            Not recomended except in development.
+                            Defaults to OFF."
     _program_commandLine_helpMessage_optionsSpacing='     '
 	_program_commandLine_helpMessage_configurationKeys="
-  lemonade_inputPath   Equivalent to --input-path
-  lemonade_outputPath  Equivalent to --output-path
-  lemonade_cleanCache  Equivalent to --clean-cache
+  lemonade_inputPath    Equivalent to --input-path
+  lemonade_outputPath   Equivalent to --output-path
+  lemonade_cleanCache   Equivalent to --clean-cache
+  lemonade_development  Equivalent to --development
 "
 	_program_commandLine_helpMessage_examples="
-  ${_program_name} -s /some/path
+  ${_program_name}
 "
 }
 
@@ -128,6 +137,10 @@ _program_commandLine_optionExists()
 		;;
 		
 		c|clean-cache)
+			echo 'yes-optionally-argumented'
+		;;
+		
+		d|development)
 			echo 'yes-optionally-argumented'
 		;;
 		
@@ -152,6 +165,11 @@ _program_commandLine_processOptionWithArgument()
 			core_validate_isBoolean $core_commandLine_exitCode_USAGE 'option' "$optionNameIncludingHyphens" "$optionValue"
 			lemonade_cleanOutput="$optionValue"
 		;;
+	
+		d|development)
+			core_validate_isBoolean $core_commandLine_exitCode_USAGE 'option' "$optionNameIncludingHyphens" "$optionValue"
+			lemonade_development="$optionValue"
+		;;
 		
 	esac
 }
@@ -162,6 +180,10 @@ _program_commandLine_processOptionWithoutArgument()
 		
 		c|clean-cache)
 			lemonade_cleanCache=on
+		;;
+	
+		d|development)
+			lemonade_development=on
 		;;
 		
 	esac
@@ -193,7 +215,13 @@ _program_commandLine_validate()
 	if core_variable_isSet lemonade_cleanCache; then
 		core_validate_isBoolean $core_commandLine_exitCode_CONFIG 'configuration setting' 'lemonade_cleanCache' "$lemonade_cleanCache"
 	else
-		lemonade_cleanCache=on
+		lemonade_cleanCache=off
+	fi
+	
+	if core_variable_isSet lemonade_development; then
+		core_validate_isBoolean $core_commandLine_exitCode_CONFIG 'configuration setting' 'lemonade_development' "$lemonade_development"
+	else
+		lemonade_development=off
 	fi
 }
 
