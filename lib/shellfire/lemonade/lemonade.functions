@@ -5,7 +5,7 @@
 # Alpine Linux lacks brotli, pngquant (edge/community) and jpegoptim (edge/community)
 
 
-core_usesIn lemonade binary caddy configuration css download_caddy favicon image_crush minify paths spellcheck validate_input validate_output
+core_usesIn lemonade binary bundle caddy configuration css download_caddy favicon image_crush minify paths spellcheck validate_input validate_output
 
 lemonade_all()
 {
@@ -85,6 +85,13 @@ lemonade_all()
 
 	core_message NOTICE "Locking down file permissions"
 	lemonade_lockDownFilePermissions
+	
+	if core_variable_isTrue "$lemonade_development"; then
+		core_message WARN "Skipping creating site.tar.gz"
+	else
+		core_message NOTICE "Creating site.tar.gz"
+		lemonade_bundle
+	fi
 	
 	core_message NOTICE "Finished"
 }
