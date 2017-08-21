@@ -42,6 +42,9 @@ lemonade_all()
 
 	core_message NOTICE "Running Hugo"
 	lemonade_runHugo
+
+	core_message NOTICE "Installing additional caddy HTTP headers"
+	lemonade_caddy_combineHeaders
 	
 	if core_variable_isTrue "$lemonade_development"; then
 		core_message WARN "Skipping image crush"
@@ -173,6 +176,7 @@ core_dependency_requires '*' chmod
 lemonade_lockDownFilePermissions()
 {
 	mkdir -m 0700 -p "$lemonade_outputPath"/site/cache
+	mkdir -m 0700 -p "$lemonade_outputPath"/site/log
 	
 	find -d "$lemonade_outputPath"/site -type f -exec chmod 0400 {} \;
 	find -d "$lemonade_outputPath"/site -type d -exec chmod 0500 {} \;
@@ -180,4 +184,5 @@ lemonade_lockDownFilePermissions()
 	find -d "$lemonade_outputPath"/site/bin -type f -exec chmod 0500 {} \;
 	chmod 0500 "$lemonade_outputPath"/site/caddy-wrapper
 	chmod 0700 "$lemonade_outputPath"/site/cache
+	chmod 0700 "$lemonade_outputPath"/site/log
 }

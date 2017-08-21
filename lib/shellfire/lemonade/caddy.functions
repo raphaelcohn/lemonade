@@ -17,3 +17,92 @@ lemonade_caddy_copyOutline()
 		mkdir -m 0700 -p "$_lemonade_siteOutputFolderPath"/"$folderNameToEnsureExists"
 	done
 }
+
+core_dependency_requires '*' rm
+lemonade_caddy_combineHeaders()
+{
+	_lemonade_caddy_combineHeaders()
+	{
+		local parentFolderRelativePath="$1"
+		
+		local folderPath
+		if [ -z "$parentFolderRelativePath" ]; then
+			folderPath=''
+		else
+			folderPath="$parentFolderRelativePath"/
+		fi
+		
+		local headersFile
+		set +f
+		for headersFile in "${folderPath}"*.headers
+		do
+			set -f
+			
+			if [ ! -e "$headersFile" ]; then
+				continue
+			fi
+			
+			if [ ! -f "$headersFile" ]; then
+				continue
+			fi
+			
+			local fileName="${headersFile##*/}"
+			local fileNameWithoutHeadersExtension="${fileName%.headers}"
+			
+			local urlFilePath="$parentFolderRelativePath"/"$fileNameWithoutHeadersExtension"
+			if [ ! -e "$urlFilePath" ]; then
+				core_message WARN "There is a headers file, but no resource '$urlFilePath'"
+			fi
+			local url
+			case "$fileNameWithoutHeadersExtension" in
+				
+				index.md|index.html|index.tpl)
+					if [ -z "$parentFolderRelativePath" ]; then
+						url=/
+					else
+						url=/"$parentFolderRelativePath"/
+					fi
+				;;
+				
+				*)
+					url=/"$urlFilePath"
+				;;
+				
+			esac
+			
+			printf '%s {\n' "$url"
+			local headerLine
+			while IFS= read -r headerLine
+			do
+				printf '\t%s\n' "$headerLine"
+			done <"$headersFile"
+			printf '}\n\n'
+			
+			rm -rf "$headersFile"
+			
+		done
+		set -f
+
+		local folder
+		set +f
+		for folder in "${folderPath}"*
+		do
+			set -f
+			
+			if [ ! -e "$folder" ]; then
+				continue
+			fi
+			
+			if [ -d "$folder" ]; then
+				_lemonade_caddy_combineHeaders "$folder"
+			fi
+		done
+		set -f
+	}
+	
+	pushd "$_lemonade_siteOutputFolderPath"/root
+	
+		_lemonade_caddy_combineHeaders '' >"$_lemonade_siteOutputFolderPath"/headers.Caddyfile
+		
+	popd
+}

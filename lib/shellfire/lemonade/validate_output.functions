@@ -297,6 +297,34 @@ _lemonade_validate_output_isNotEmpty()
 	done <"$filesPath"
 }
 
+_lemonade_validate_output_noObsoleteFiles()
+{
+	local relativeFilePath="$1"
+	local reason="$2"
+
+	if [ -e  "$_lemonade_siteOutputFolderPath"/root/"$relativeFilePath" ]; then
+		core_message WARN "$reason"
+	fi
+}
+
+core_dependency_requires '*' find
+_lemonade_validate_output_noEmptyFolders()
+{
+	local folderName
+	for folderName in errors root
+	do
+		local TMP_FILE
+		core_temporaryFiles_newFileToRemoveOnExit
+		local filesPath="$_lemonade_temporaryFolderPath"/empty-folders."$folderName".txt
+		
+		find "$_lemonade_siteOutputFolderPath"/"$folderName" -type d -empty  >"$filesPath"
+		
+		if [ -s "$filesPath" ]; then
+			core_message WARN "There are empty folders in '$_lemonade_siteOutputFolderPath/$folderName', check '$filesPath'"
+		fi
+	done
+}
+
 core_dependency_requires '*' find
 core_dependency_requires '*' tr
 _lemonade_validate_output_urlsAreSimple()
@@ -509,7 +537,8 @@ lemonade_validate_output()
 	_lemonade_validate_output_warnUnusualFileExtensions sass "Files ending .sass are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions scss "Files ending .scss are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions less "Files ending .less are usually build artefacts"
-	_lemonade_validate_output_warnUnusualFileExtensions less "Files ending .eot are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions eot "Files ending .eot are usually build artefacts"
+	_lemonade_validate_output_warnUnusualFileExtensions options "Files ending .options are usually build artefacts"
 	_lemonade_validate_output_warnUnusualFileExtensions xhtml "XHTML files are obsolete"
 	_lemonade_validate_output_warnUnusualFileExtensions bmp "BMP files are obsolete"
 	_lemonade_validate_output_warnUnusualFileExtensions pcx "PCX files are obsolete"
@@ -549,6 +578,10 @@ lemonade_validate_output()
 	_lemonade_validate_output_warnUnusualFileExtensions htc "Legacy website technologies are security problems waiting to happen"
 	
 	# WebM, WebP - not widely supported
+	
+	_lemonade_validate_output_noObsoleteFiles 'crossconfig.xml' "/crossconfig.xml is an obsolete Adobe Flash file"
+	
+	_lemonade_validate_output_noEmptyFolders
 	
 	_lemonade_validate_output_urlsAreSimple
 	

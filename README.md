@@ -1,22 +1,16 @@
 # lemonade
 
-Creating websites should be as easy as making lemonade - gather your ingredients, follow a simple process and enjoy!
+Creating great websites should be as easy as making lemonade - gather your ingredients, follow a simple process and enjoy!
 
-`lemonade` creates static, minified and compressed websites using Hugo, Caddy and RealFaviconGenerator which can deployed by rsync to any Linux host or container with no additional dependencies (not even an installed webserver). All the inputs to the website can be stored in git. Websites can also run locally on any operating system that Caddy supports. It checks the output for common problems, including spelling mistakes, missing files, inappropriate files and the like.
+`lemonade` creates static, checked, minified and compressed websites ready to be used standalone on any POSIX server, or as a Docker container.
+
+It uses Hugo, Caddy and RealFaviconGenerator which can deployed by rsync to any Linux host or container with no additional dependencies (not even an installed webserver). All the inputs to the website can be stored in git. Websites can also run locally on any operating system that Caddy supports. It checks the output for common problems, including spelling mistakes, missing files, inappropriate files and the like.
 
 `lemonade` understands about environments (eg production) and lets you separate out the small pieces of configuration (and any secrets) that need to differ.
 
 `lemonade`, wherever, possible, will install its own dependencies - but **only** on the build machine - never on a webserver. It works best on Mac OS X with Homebrew.
 
 If you find lemonade's checks a bit slow, you can speed it up for development by doing `lemonade --development`.
-
-
-## Making Small Sites
-
-* All PNG, JPG, GIF and SVG images are cleaned and crushed losslessly
-* Optionally, PNG and JPG images can be lossly crushed on a per-file basis
-* All HTML, CSS, JavaScript, JSON and SVG files are minified
-* All textual resources, along with ICO, EOT and TTF binary files are maximally compressed to brotli and gzip (`zopfli -11`)
 
 
 ## Making Robust Sites
@@ -26,6 +20,30 @@ If you find lemonade's checks a bit slow, you can speed it up for development by
 * All configuration and command line settings for `caddy` are in source control
 * Configuration can have per-environment overrides
 * Configuration can be split, so that 'secret' data (eg passwords, API keys, etc) does not need to put in source control
+
+
+## Making Good Sites
+
+* Checks for URLs which are not simple, ie composed of a-z, 0-9, hyphen and, for files, period
+* Checks for HTML meta-tag descriptions
+	* which are empty or missing
+	* which are over 160 characters
+	* which are not simple
+	* which do not end with `.`, `?` or `!`
+* Checks for HTML titles
+	* which are empty or missing
+	* which are over 60 characters
+	* which are not simple
+	* which end in ` `, `|` or `:`
+* Checks spellings in HTML files using `aspell`
+
+
+## Making Small Sites
+
+* All PNG, JPG, GIF and SVG images are cleaned and crushed losslessly
+* Optionally, PNG and JPG images can be lossly crushed on a per-file basis
+* All HTML, CSS, JavaScript, JSON and SVG files are minified
+* All textual resources, along with ICO, EOT and TTF binary files are maximally compressed to brotli and gzip (`zopfli -11`)
 
 
 ## Making Safe Sites
@@ -67,22 +85,7 @@ If you find lemonade's checks a bit slow, you can speed it up for development by
 * Checks for binary libraries for Windows or Unix
 * Checks that the *only* ICO file is `favicon.ico`; ICO files are obsolete otherwise
 * Checks for resources which shouldn't exist in a modern site (`.cgi`, `.php`, `.asp`, `.jsp` and `.aspx`)
-
-
-## Making Good Sites
-
-* Checks for URLs which are not simple, ie composed of a-z, 0-9, hyphen and, for files, period
-* Checks for HTML meta-tag descriptions
-	* which are empty or missing
-	* which are over 160 characters
-	* which are not simple
-	* which do not end with `.`, `?` or `!`
-* Checks for HTML titles
-	* which are empty or missing
-	* which are over 60 characters
-	* which are not simple
-	* which end in ` `, `|` or `:`
-* Checks spellings in HTML files using `aspell`
+* Checks for empty folders, which imply a file wasn't generated or created
 
 
 ## To use
