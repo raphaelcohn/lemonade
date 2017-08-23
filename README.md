@@ -457,6 +457,7 @@ secret.*
 Hugo data goes in `input/hugo`. The following structure **MUST** be present:-
 
 ```
+before-hugo
 archectypes/
 content/
 data/
@@ -470,6 +471,11 @@ config.toml
 ```
 
 If any folder contains no content, simply put an empty `.gitignore` file in it.
+
+
+#### `before-hugo`
+
+If this file exists and is executable (eg `chmod +x before-hugo`), it is run as `before-build LEMONADE_INPUT_FOLDER_PATH LEMONADE_OUTPUT_FOLDER_PATH`. Use this to add resourced to, say, Hugo's `layouts/partials` (not least because Hugo doesn't support symlinks properly).
 
 
 #### `layouts/partials/structure/.gitignore`

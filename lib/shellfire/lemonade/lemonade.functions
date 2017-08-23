@@ -40,7 +40,6 @@ lemonade_all()
 	core_message NOTICE "Generating Favicon"
 	lemonade_favicon_getRealFavicon
 
-	core_message NOTICE "Running Hugo"
 	lemonade_runHugo
 
 	core_message NOTICE "Installing additional caddy HTTP headers"
@@ -103,7 +102,14 @@ core_dependency_requires '*' find
 lemonade_runHugo()
 {
 	local hugoInputFolderPath="$lemonade_inputPath"/hugo
-	
+
+	local beforeHugoBuildScriptFilePath="$hugoInputFolderPath"/before-hugo
+	if [ -x "$beforeHugoBuildScriptFilePath" ]; then
+		core_message NOTICE "Run before-hugo build script"
+		"$beforeHugoBuildScriptFilePath" "$lemonade_inputPath" "$lemonade_outputPath"
+	fi
+
+	core_message NOTICE "Running Hugo"
 	hugo --quiet \
 		--destination "$_lemonade_rootOutputPath" --source "$hugoInputFolderPath" \
 		--i18n-warnings
@@ -115,9 +121,6 @@ lemonade_runHugo()
 		rm -rf "$errors"/404.html
 		mv "$_lemonade_rootOutputPath"/404.html "$errors"
 	fi
-	
-	# Some hugo themes incorrectly using `.gitkeep`
-	find -d "$lemonade_outputPath"/site -type f -name '.gitkeep' -exec rm -rf {} \;
 }
 
 core_dependency_requires '*' find
