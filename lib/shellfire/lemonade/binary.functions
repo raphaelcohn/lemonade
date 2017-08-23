@@ -38,7 +38,7 @@ lemonade_binary_installAndAddNpmBinariesToThePath()
 
 lemonade_binary_checkForPresenceOfPythonPygments()
 {
-	if ! command pygmentize 1>/dev/null 2>/dev/null; then
-		core_message WARN "pygmentize is not in the PATH (try running `pip install Pygments`) (see https://gohugo.io/tools/syntax-highlighting/ )"
+	if ! command -v pygmentize 1>/dev/null 2>/dev/null; then
+		core_message WARN "pygmentize is not in the PATH (try running  pip install Pygments ) (see https://gohugo.io/tools/syntax-highlighting/ )"
 	fi
 }
