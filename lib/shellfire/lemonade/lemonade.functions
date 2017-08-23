@@ -21,6 +21,8 @@ lemonade_all()
 	core_message NOTICE "Adding npm binaries to the PATH"
 	lemonade_binary_installAndAddNpmBinariesToThePath autoprefixer-cli@1.0.0 html-minifier@3.5.3
 	
+	lemonade_binary_checkForPresenceOfPythonPygments
+	
 	if core_variable_isTrue "$lemonade_development"; then
 		core_message WARN "Skipping input validation checks"
 	else
