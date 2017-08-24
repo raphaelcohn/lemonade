@@ -84,7 +84,7 @@ _lemonade_validate_input_favicon()
 _lemonade_validate_input_hugo()
 {
 	local folderName
-	for folderName in hugo hugo/archetypes hugo/content hugo/data hugo/layouts hugo/layouts/partials hugo/static hugo/themes
+	for folderName in hugo hugo/archetypes hugo/content hugo/data hugo/layouts hugo/layouts/partials hugo/static
 	do
 		core_validate_folderPathReadableAndSearchable $core_commandLine_exitCode_CONFIG 'hugo configuration setting' 'lemonade_inputPath' "$lemonade_inputPath"/"$folderName"
 	done

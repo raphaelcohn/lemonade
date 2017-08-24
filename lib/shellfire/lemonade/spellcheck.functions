@@ -92,6 +92,8 @@ lemonade_spellcheck()
 		popd
 		
 		# Remove any empty folders to make any spelling mistake files easier to find by the user
-		find "$_lemonade_temporaryFolderPath"/spelling-mistakes/"$folderName" -type d -empty -exec rmdir {} \;
+		if [ -e "$_lemonade_temporaryFolderPath"/spelling-mistakes/"$folderName" ]; then
+			find "$_lemonade_temporaryFolderPath"/spelling-mistakes/"$folderName" -type d -empty -exec rmdir {} \;
+		fi
 	done
 }

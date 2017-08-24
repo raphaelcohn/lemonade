@@ -507,7 +507,7 @@ lemonade_validate_output()
 	_lemonade_validate_output_mimeTypeMatchesFileExtension jpg image/jpeg
 	_lemonade_validate_output_mimeTypeMatchesFileExtension gif image/gif
 	_lemonade_validate_output_mimeTypeMatchesFileExtension ico image/x-icon
-	_lemonade_validate_output_mimeTypeMatchesFileExtension svg image/svg
+	_lemonade_validate_output_mimeTypeMatchesFileExtension svg image/svg+xml
 	_lemonade_validate_output_mimeTypeMatchesFileExtension html text/html
 	_lemonade_validate_output_mimeTypeMatchesFileExtension xml text/xml
 	_lemonade_validate_output_mimeTypeMatchesFileExtension txt text/plain

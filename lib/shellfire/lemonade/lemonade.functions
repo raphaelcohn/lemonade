@@ -43,9 +43,25 @@ lemonade_all()
 	lemonade_favicon_getRealFavicon
 
 	lemonade_runHugo
-
+	
 	core_message NOTICE "Installing additional caddy HTTP headers"
 	lemonade_caddy_combineHeaders
+	
+	lemonade_removeSourceControlRelics
+	
+	if core_variable_isTrue "$lemonade_development"; then
+		core_message WARN "Skipping output validation checks"
+	else
+		core_message NOTICE "Validating Output"
+		lemonade_validate_output
+	fi
+	
+	if core_variable_isTrue "$lemonade_development"; then
+		core_message WARN "Skipping spellchecking"
+	else
+		core_message NOTICE "Validating Spellchecking"
+		lemonade_spellcheck
+	fi
 	
 	if core_variable_isTrue "$lemonade_development"; then
 		core_message WARN "Skipping image crush"
@@ -62,22 +78,6 @@ lemonade_all()
 		core_message NOTICE "Minifying"
 		lemonade_minify_html
 		lemonade_minify
-	fi
-	
-	lemonade_removeSourceControlRelics
-	
-	if core_variable_isTrue "$lemonade_development"; then
-		core_message WARN "Skipping output validation checks"
-	else
-		core_message NOTICE "Validating Output"
-		lemonade_validate_output
-	fi
-	
-	if core_variable_isTrue "$lemonade_development"; then
-		core_message WARN "Skipping spellchecking"
-	else
-		core_message NOTICE "Validating Spellchecking"
-		lemonade_spellcheck
 	fi
 	
 	if core_variable_isTrue "$lemonade_development"; then
@@ -112,9 +112,11 @@ lemonade_runHugo()
 	fi
 
 	core_message NOTICE "Running Hugo"
-	hugo --quiet \
+	# --quiet
+	hugo \
 		--destination "$_lemonade_rootOutputPath" --source "$hugoInputFolderPath" \
-		--i18n-warnings
+		--i18n-warnings \
+			--verbose --debug
 	
 	local errors="$_lemonade_siteOutputFolderPath"/errors
 	mkdir -m 0700 -p "$errors"
@@ -123,21 +125,6 @@ lemonade_runHugo()
 		rm -rf "$errors"/404.html
 		mv "$_lemonade_rootOutputPath"/404.html "$errors"
 	fi
-}
-
-core_dependency_requires '*' find
-core_dependency_requires '*' tidy
-lemonade_tidy_html()
-{
-	local folderPath
-	for folderPath in "$_lemonade_siteOutputFolderPath"/root "$_lemonade_siteOutputFolderPath"/errors
-	do
-		local filePath
-		find "$folderPath" -type f -name '*.html' | while IFS= read -r filePath
-		do
-			tidy -modify -clean -quiet -raw -utf8 -lang en "$filePath"
-		done
-	done
 }
 
 core_dependency_requires '*' find
