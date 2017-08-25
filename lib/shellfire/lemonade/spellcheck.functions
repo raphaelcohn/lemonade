@@ -54,17 +54,15 @@ _lemonade_spellcheck_htmlFile()
 			local numberOfWords="$(wc -l "$wordlistFilePath" | awk '{print $1}')"
 			{
 				printf 'personal_ws-1.1 en %s utf-8\n' "$numberOfWords"
-				LC_ALL=C LANG=C LANGUAGE=C tr '[:upper:]' '[:lower:]' <"$wordlistFilePath" | LC_ALL=C LANG=C LANGUAGE=C sort -u
+				LC_ALL=C LANG=C LANGUAGE=C sort -u "$wordlistFilePath"
 			} >"$aspellPersonalDictionaryFilePath"
 			
 		fi
 		set -- "$@" -p "$aspellPersonalDictionaryFilePath"
 	fi
 	
-	# aspell doesn't like smart quotes
-	echo aspell "$@" list '<'"$relativeHtmlFilePath"
 	aspell "$@" list <"$relativeHtmlFilePath" | sort -u -f >"$spellingMistakesFilePath"
-	
+		
 	if [ -s "$spellingMistakesFilePath" ]; then
 		core_message WARN "HTML has spelling mistakes (recorded in '$spellingMistakesFilePath')"
 	else
@@ -84,7 +82,7 @@ lemonade_spellcheck()
 	
 		pushd "$_lemonade_siteOutputFolderPath"/"$folderName"
 			
-			find . -type d \( -path ./pjax \) -prune -o -type f -name '*.html' >"$filesPath"
+			find . -type d \( -path ./pjax -o -path ./amp \) -prune -o -type f -name '*.html' >"$filesPath"
 			local filePath
 			while IFS= read -r filePath
 			do

@@ -44,6 +44,9 @@ lemonade_all()
 
 	lemonade_runHugo
 	
+	core_message NOTICE "Using HTML5 tidy to make input suitable for other tools"
+	lemonade_tidy
+	
 	core_message NOTICE "Installing additional caddy HTTP headers"
 	lemonade_caddy_combineHeaders
 	
@@ -124,6 +127,33 @@ lemonade_runHugo()
 		rm -rf "$errors"/404.html
 		mv "$_lemonade_rootOutputPath"/404.html "$errors"
 	fi
+}
+
+core_dependency_requires '*' tidy
+core_dependency_requires '*' find
+core_dependency_requires '*' rm
+core_dependency_requires '*' mv
+lemonade_tidy()
+{
+	local TMP_FILE
+	core_temporaryFiles_newFileToRemoveOnExit
+	local filesPath="$TMP_FILE"
+	
+	local folderName
+	for folderName in errors root
+	do
+		find "$lemonade_outputPath"/site/"$folderName" -type d \( -path ./pjax -o -path ./amp \) -prune -o -type f -name '*.html' 1>"$filesPath"
+
+		local filePath
+		while IFS= read -r filePath
+		do
+			if [ -f "$filePath" ]; then
+				tidy -asxhtml -clean --force-output yes -quiet -language en "$filePath" >"$filePath".tidied 2>/dev/null || true
+				rm "$filePath"
+				mv "$filePath".tidied "$filePath"
+			fi
+		done <"$filesPath"
+	done
 }
 
 core_dependency_requires '*' find

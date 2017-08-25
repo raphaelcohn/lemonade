@@ -374,7 +374,7 @@ _lemonade_validate_output_htmlDescriptionsAreSimple()
 	
 	pushd "$_lemonade_siteOutputFolderPath"/root
 	
-		find . -type d \( -path ./pjax \) -prune -o -type f -name '*.html' >"$filesPath"
+		find . -type d \( -path ./pjax -o -path ./amp \) -prune -o -type f -name '*.html' >"$filesPath"
 		local filePath
 		while IFS= read -r filePath
 		do
@@ -438,7 +438,7 @@ _lemonade_validate_output_htmlTitlesAreSimple()
 	
 	pushd "$_lemonade_siteOutputFolderPath"/root
 
-		find . -type d \( -path ./pjax \) -prune -o -type f -name '*.html' >"$filesPath"
+		find . -type d \( -path ./pjax -o -path ./amp \) -prune -o -type f -name '*.html' >"$filesPath"
 		local filePath
 		while IFS= read -r filePath
 		do
