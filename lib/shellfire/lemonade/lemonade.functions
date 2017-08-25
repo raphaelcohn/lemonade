@@ -148,7 +148,7 @@ lemonade_tidy()
 		while IFS= read -r filePath
 		do
 			if [ -f "$filePath" ]; then
-				tidy -asxhtml -clean --force-output yes -quiet -language en "$filePath" >"$filePath".tidied 2>/dev/null || true
+				tidy --tidy-mark no -asxhtml -clean --force-output yes -quiet -language en "$filePath" >"$filePath".tidied 2>/dev/null || true
 				rm "$filePath"
 				mv "$filePath".tidied "$filePath"
 			fi
