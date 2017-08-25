@@ -363,7 +363,8 @@ core_dependency_requires '*' hxnormalize
 core_dependency_requires '*' hxselect
 core_dependency_requires '*' head
 core_dependency_requires '*' hxpipe
-core_dependency_requires '*' awk
+core_dependency_requires '*' grep
+core_dependency_requires '*' sed
 core_dependency_requires '*' tr
 _lemonade_validate_output_htmlDescriptionsAreSimple()
 {
@@ -372,12 +373,16 @@ _lemonade_validate_output_htmlDescriptionsAreSimple()
 	local filesPath="$TMP_FILE"
 	
 	pushd "$_lemonade_siteOutputFolderPath"/root
-		
-		find . -type f -name '*.html' >"$filesPath"
+	
+		find . -type d \( -path ./pjax \) -prune -o -type f -name '*.html' >"$filesPath"
 		local filePath
 		while IFS= read -r filePath
 		do
-			local description="$(hxnormalize -x -e "$filePath" | hxselect -l en -i 'html > head > meta[name=description]' | head -n 1 | hxpipe | awk '$1 ~ /^Acontent/ {print $3}')"
+			if [ ! -f "$filePath" ]; then
+				continue
+			fi
+			
+			local description="$(hxnormalize -x -e "$filePath" | hxselect -l en -i 'html > head > meta[name=description]' | head -n 1 | hxpipe | grep '^Acontent' | sed 's/^Acontent CDATA //g')"
 			
 			local isEmpty=false
 			if [ ${#description} -eq 0 ]; then
@@ -386,7 +391,7 @@ _lemonade_validate_output_htmlDescriptionsAreSimple()
 			elif [ ${#description} -gt 160 ]; then
 				core_message WARN "HTML has overlong meta-tag (160+ characters) for description at '$filePath'"
 			fi
-
+			
 			local stripped="$(printf '%s\n' "$description" | tr -C -d -- '! &,-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ?@abcdefghijklmnopqrstuvwxyz')"
 		
 			if [ ${#stripped} -ne ${#description} ]; then
@@ -432,11 +437,15 @@ _lemonade_validate_output_htmlTitlesAreSimple()
 	local filesPath="$TMP_FILE"
 	
 	pushd "$_lemonade_siteOutputFolderPath"/root
-		
-		find . -type f -name '*.html' >"$filesPath"
+
+		find . -type d \( -path ./pjax \) -prune -o -type f -name '*.html' >"$filesPath"
 		local filePath
 		while IFS= read -r filePath
 		do
+			if [ ! -f "$filePath" ]; then
+				continue
+			fi
+			
 			local title="$(hxnormalize -x -e "$filePath" | hxselect -l en -i -c 'html > head > title' | head -n 1)"
 			
 			local isEmpty=false
@@ -508,7 +517,7 @@ lemonade_validate_output()
 	_lemonade_validate_output_mimeTypeMatchesFileExtension gif image/gif
 	_lemonade_validate_output_mimeTypeMatchesFileExtension ico image/x-icon
 	_lemonade_validate_output_mimeTypeMatchesFileExtension svg image/svg+xml
-	_lemonade_validate_output_mimeTypeMatchesFileExtension html text/html
+	#_lemonade_validate_output_mimeTypeMatchesFileExtension html text/html
 	_lemonade_validate_output_mimeTypeMatchesFileExtension xml text/xml
 	_lemonade_validate_output_mimeTypeMatchesFileExtension txt text/plain
 	_lemonade_validate_output_mimeTypeMatchesFileExtension woff application/font-woff

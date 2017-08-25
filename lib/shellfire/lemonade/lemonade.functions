@@ -115,8 +115,7 @@ lemonade_runHugo()
 	# --quiet
 	hugo \
 		--destination "$_lemonade_rootOutputPath" --source "$hugoInputFolderPath" \
-		--i18n-warnings \
-			--verbose --debug
+		--i18n-warnings
 	
 	local errors="$_lemonade_siteOutputFolderPath"/errors
 	mkdir -m 0700 -p "$errors"

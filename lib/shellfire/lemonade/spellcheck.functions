@@ -8,7 +8,6 @@ core_dependency_requires '*' head
 core_dependency_requires '*' awk
 core_dependency_requires '*' mkdir
 core_dependency_requires '*' wc
-core_dependency_requires '*' cat
 core_dependency_requires '*' aspell
 core_dependency_requires '*' sort
 core_dependency_requires '*' rm
@@ -24,18 +23,19 @@ _lemonade_spellcheck_htmlFile()
 	do	
 		if [ -z "$language" ]; then
 			language='en'
-			dialect='US'
+			dialect='us'
 		fi
 		break
 	done <<-EOF
 		$(hxnormalize -x -e "$relativeHtmlFilePath" | hxpipe | head -n 10 | awk '$1 ~ /^Alang$/ {print $3}' | head -n 1)
 	EOF
-	
+
+	local upperCaseDialect="$(printf "$dialect" | tr '[:lower:]' '[:upper:]')"
 	local aspellCode
 	if [ -z "$dialect" ]; then
 		aspellCode="$language"
 	else
-		aspellCode="${language}"_"${dialect}"
+		aspellCode="${language}"_"${upperCaseDialect}"
 	fi
 	
 	local spellingMistakesFilePath="$_lemonade_temporaryFolderPath"/spelling-mistakes/"$folderName"/"$relativeHtmlFilePath".spelling-mistakes
@@ -54,13 +54,15 @@ _lemonade_spellcheck_htmlFile()
 			local numberOfWords="$(wc -l "$wordlistFilePath" | awk '{print $1}')"
 			{
 				printf 'personal_ws-1.1 en %s utf-8\n' "$numberOfWords"
-				cat "$wordlistFilePath"
+				LC_ALL=C LANG=C LANGUAGE=C tr '[:upper:]' '[:lower:]' <"$wordlistFilePath" | LC_ALL=C LANG=C LANGUAGE=C sort -u
 			} >"$aspellPersonalDictionaryFilePath"
 			
 		fi
 		set -- "$@" -p "$aspellPersonalDictionaryFilePath"
 	fi
 	
+	# aspell doesn't like smart quotes
+	echo aspell "$@" list '<'"$relativeHtmlFilePath"
 	aspell "$@" list <"$relativeHtmlFilePath" | sort -u -f >"$spellingMistakesFilePath"
 	
 	if [ -s "$spellingMistakesFilePath" ]; then
@@ -82,17 +84,19 @@ lemonade_spellcheck()
 	
 		pushd "$_lemonade_siteOutputFolderPath"/"$folderName"
 			
-			find . -type f -name '*.html' >"$filesPath"
+			find . -type d \( -path ./pjax \) -prune -o -type f -name '*.html' >"$filesPath"
 			local filePath
 			while IFS= read -r filePath
 			do
-				_lemonade_spellcheck_htmlFile "$folderName" "$filePath"
+				if [ -f "$filePath" ]; then
+					_lemonade_spellcheck_htmlFile "$folderName" "$filePath"
+				fi
 			done <"$filesPath"
 			
 		popd
 		
 		# Remove any empty folders to make any spelling mistake files easier to find by the user
-		if [ -e "$_lemonade_temporaryFolderPath"/spelling-mistakes/"$folderName" ]; then
+		if [ ! -e "$_lemonade_temporaryFolderPath"/spelling-mistakes/"$folderName" ]; then
 			find "$_lemonade_temporaryFolderPath"/spelling-mistakes/"$folderName" -type d -empty -exec rmdir {} \;
 		fi
 	done

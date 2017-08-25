@@ -38,6 +38,8 @@ If you find lemonade's checks a bit slow, you can speed it up for development by
 * Checks spellings in HTML files using `aspell`
 
 
+***NOTE:*** PJAX files (those in `output/site/root/pjax`; URL `/pjax/*`) are *not* checked. This is because they are HTML snippets
+
 ## Making Small Sites
 
 * All PNG, JPG, GIF and SVG images are cleaned and crushed losslessly
@@ -201,6 +203,8 @@ mv FILE.wordlist FILE.wordlist.orig && LANG=C sort -u -f FILE.wordlist.orig >FIL
 ```
 
 Spelling mistakes are output to the `output/temporary/spelling-mistakes` folder.
+
+***NOTE:*** PJAX files (those in `output/site/root/pjax`; URL `/pjax/*`) are *not* spellchecked. This is because they are HTML snippets which duplicate regular HTML (and for whom we can not detect the correct language encoding).
 
 
 #### Favicons & App Manifests
